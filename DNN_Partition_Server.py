@@ -26,5 +26,6 @@ class Dispacher(object):
         pred = str((prob.index(max(prob)), max(prob)))
         return pred
 
+
 if __name__ == '__main__':
     server_start()

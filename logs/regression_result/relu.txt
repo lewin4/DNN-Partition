@@ -1,3 +1,0 @@
-Weight and bias:[[0.41178723]] [0.00365449] 
-x max and min: tensor([[1936404.]], dtype=torch.float64), tensor([[1487320.]], dtype=torch.float64)
-y max and min: tensor([[0.0227]], dtype=torch.float64), tensor([[0.]], dtype=torch.float64)

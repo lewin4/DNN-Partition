@@ -1,3 +1,5 @@
+import os.path
+
 import torch
 import matplotlib.pyplot as plt
 import numpy as np
@@ -105,21 +107,10 @@ def generate_conv_data_and_save(path: str) -> Dict:
             data_x = torch.cat((data_x, torch.tensor([[x1, x2]], dtype=torch.float32)), 0)
             data_y = torch.cat((data_y, torch.tensor([[times]])), 0)
     print("Data has been generated.")
-    min_data_x, _ = torch.min(data_x, dim=0, keepdim=True)
-    max_data_x, _ = torch.max(data_x, dim=0, keepdim=True)
-    min_data_y, _ = torch.min(data_y, dim=0, keepdim=True)
-    max_data_y, _ = torch.max(data_y, dim=0, keepdim=True)
-    data_x = (data_x - min_data_x) / (max_data_x - min_data_x)
-    data_y = (data_y - min_data_y) / (max_data_y - min_data_y)
 
-    conv_train_data = {
-        "x_max": max_data_x,
-        "x_min": min_data_x,
-        "y_max": max_data_y,
-        "y_min": min_data_y,
-        "data_x": data_x,
-        "data_y": data_y,
-    }
+    print("Data to 0 - 1.")
+    conv_train_data = data_to_one(data_x, data_y)
+
     torch.save(conv_train_data, path)
     return conv_train_data
 
@@ -133,7 +124,7 @@ def generate_relu_data_and_save(path):
     for batch in range(400):
         b = random.randint(5, 16)
         c = random.randint(3, 512)
-        h = random.randint(8, 256)
+        h = random.randint(8, 128)
         w = h
         print("b, c, h, w: ", b, c, h, w)
         batch_tensor = torch.rand((b, c, h, w)).to(device)
@@ -172,9 +163,10 @@ def generate_bn_data_and_save(path):
         b = random.randint(5, 16)
         c_id = random.randint(0, 4)
         c = bn_channel[c_id]
-        h = random.randint(8, 256)
+        h = random.randint(8, 128)
         w = h
         batch_tensor = torch.rand((b, c, h, w)).to(device)
+        print("b, c, h, w: ", b, c, h, w)
         x = np.prod(batch_tensor.size())
         with torch.no_grad():
             time_start = time.time()
@@ -190,6 +182,68 @@ def generate_bn_data_and_save(path):
 
     torch.save(bn_train_data, path)
     return bn_train_data
+
+
+def generate_pool_data_and_save(path):
+    print("Generating pool data ... ")
+    pool = torch.nn.MaxPool2d(kernel_size=3, stride=2, padding=1).to(device)
+
+    data_x = torch.DoubleTensor(0, 2)
+    data_y = torch.DoubleTensor(0, 1)
+
+    for batch in range(400):
+        b = random.randint(5, 16)
+        c = random.randint(3, 512)
+        h = random.randint(8, 128)
+        w = h
+        print("b, c, h, w: ", b, c, h, w)
+        batch_tensor = torch.rand((b, c, h, w)).to(device)
+        x0 = np.prod(batch_tensor.size())
+        with torch.no_grad():
+            time_start = time.time()
+            y = pool(batch_tensor)
+            times = time.time() - time_start
+        x1 = np.prod(y.size())
+        data_y = torch.cat((data_y, torch.tensor([[times]])), 0)
+        data_x = torch.cat((data_x, torch.tensor([[x0, x1]])), 0)
+
+    print("Data has been generated.")
+
+    print("Data to 0 - 1.")
+    pool_train_data = data_to_one(data_x, data_y)
+
+    torch.save(pool_train_data, path)
+    return pool_train_data
+
+
+def generate_fc_data_and_save(path):
+    print("Generating fc data ... ")
+
+    data_x = torch.DoubleTensor(0, 2)
+    data_y = torch.DoubleTensor(0, 1)
+
+    for batch in range(400):
+        h = random.randint(128, 24576)
+        w = random.randint(8, 128)
+        print("h, w: ", h, w)
+        fc = torch.nn.Linear(h, w).to(device)
+        batch_tensor = torch.rand((16, h)).to(device)
+        x0 = np.prod(batch_tensor.size())
+        with torch.no_grad():
+            time_start = time.time()
+            y = fc(batch_tensor)
+            times = time.time() - time_start
+        x1 = np.prod(y.size())
+        data_y = torch.cat((data_y, torch.tensor([[times]])), 0)
+        data_x = torch.cat((data_x, torch.tensor([[x0, x1]])), 0)
+
+    print("Data has been generated.")
+
+    print("Data to 0 - 1.")
+    fc_train_data = data_to_one(data_x, data_y)
+
+    torch.save(fc_train_data, path)
+    return fc_train_data
 
 
 def load_train_data(path):
@@ -221,10 +275,12 @@ def save_regression_result(model: torch.nn.Module,
     print("model is saved")
 
 
-def regression(type: str):
-    # checkpoint = load_train_data("./logs/train_data/bn_train_data.pth")
+def regression(type: str, num_epochs: int = 15):
     train_data_path = "./logs/train_data/" + type + "_train_data.pth"
-    checkpoint = eval("generate_" + type + "_data_and_save")(train_data_path)
+    if os.path.exists(train_data_path):
+        checkpoint = load_train_data(train_data_path)
+    else:
+        checkpoint = eval("generate_" + type + "_data_and_save")(train_data_path)
     data_x = checkpoint["data_x"]
     data_y = checkpoint["data_y"]
     max_data_x = checkpoint["x_max"]
@@ -237,7 +293,6 @@ def regression(type: str):
 
     # 3.构建损失函数和优化器的选择
     print("Starting regression")
-    NUM_EPOCHS = 15
     batch_size = 10
 
     n_batch_size = int(data_x.size()[0] / batch_size)
@@ -248,11 +303,11 @@ def regression(type: str):
     summary_writer = SummaryWriter(writer_dir)
     criterion = torch.nn.MSELoss(reduction="mean")
     optimizer = torch.optim.SGD(model.parameters(), lr=0.005)
-    lr_scheduler = CosineAnnealingLR(optimizer, NUM_EPOCHS, n_batch_size, eta_min=1.e-6, last_epoch=-1)
+    lr_scheduler = CosineAnnealingLR(optimizer, num_epochs, n_batch_size, eta_min=1.e-6, last_epoch=-1)
 
     n_iter = 0
     model.train()
-    for epoch in range(NUM_EPOCHS):
+    for epoch in range(num_epochs):
         for x, y in get_data_iter(batch_size, data_x, data_y):
             y_pred = model(x.to(device))
             y = y.to(device)
@@ -275,5 +330,5 @@ def regression(type: str):
 
 if __name__ == "__main__":
 
-    regression("relu")
+    regression("fc")
 
