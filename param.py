@@ -20,14 +20,18 @@ from Branchy_Resnet18 import ResNet
 
 if __name__ == "__main__":
 
-    # net = NetExit4Part2R()
-    # summary, _ = summary(net, (64, 48, 64), batch_size=2, device="cpu")
+    for exit_branch in range(BRANCH_NUMBER - 1, -1, -1):    #iter[2, 1, 0]
+        partition_point_number = [2, 2, 3, 4]
+        for partition_point in range(partition_point_number[exit_branch]):
+            L_model_name = "NetExit" + str(exit_branch + 1) + "Part" + str(partition_point + 1) + 'L'
+            R_model_name = "NetExit" + str(exit_branch + 1) + "Part" + str(partition_point + 1) + 'R'
+
+
+
+    # model = ResNet(BasicBlock, [2, 2, 2, 2], num_classes=6, branch=1)
+    # summary, _ = summary(model, (3, 192, 256), batch_size=2, device="cpu")
     # print("+"*20)
-    # stat(net, (64, 48, 64))
-    model = ResNet(BasicBlock, [2, 2, 2, 2], num_classes=6, branch=1)
-    summary, _ = summary(model, (3, 192, 256), batch_size=2, device="cpu")
-    print("+"*20)
-    x = torch.rand(2, 3, 192, 256)
-    y = model(x)
-    stat(model, (3, 192, 256))
-    print("Net ok!")
+    # x = torch.rand(2, 3, 192, 256)
+    # y = model(x)
+    # stat(model, (3, 192, 256))
+    # print("Net ok!")

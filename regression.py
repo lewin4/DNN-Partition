@@ -8,6 +8,8 @@ import random
 from tensorboardX import SummaryWriter
 from Branchy_Resnet18 import CosineAnnealingLR
 from typing import Dict
+from Resnet_Model_Pair import *
+from torchsummary import summary
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -246,6 +248,47 @@ def generate_fc_data_and_save(path):
     return fc_train_data
 
 
+def generate_load_data_and_save(path):
+    print("Generating load data ... ")
+
+    data_x = torch.DoubleTensor(0, 1)
+    data_y = torch.DoubleTensor(0, 1)
+    from Time_Prediction import partition_point_number
+    for i in range(19):
+        for exit_branch in range(BRANCH_NUMBER - 1, -1, -1):  # iter[2, 1, 0]
+            for partition_point in range(partition_point_number[exit_branch]):
+                L_model_name = "NetExit" + str(exit_branch + 1) + "Part" + str(partition_point + 1) + 'L'
+                R_model_name = "NetExit" + str(exit_branch + 1) + "Part" + str(partition_point + 1) + 'R'
+
+                net_L = eval(L_model_name)()
+                summarydict, summ = summary(net_L, INPUT_SIZE, device="cuda" if torch.cuda.is_available() else "cpu")
+                left_model_size = summarydict["Total params"]
+                data_x = torch.cat((data_x, torch.tensor([[left_model_size]])), 0)
+                time_start = time.time()
+                net_L.load_state_dict(torch.load(MODEL_DIR + L_model_name + ".pth", map_location=device))
+                times = time.time() - time_start
+                data_y = torch.cat((data_y, torch.tensor([[times]])), 0)
+                del net_L
+
+                net_R = eval(R_model_name)()
+                output_shape = next(reversed(summ.items()))[1]["output_shape"]
+                img_shape = tuple(output_shape[1:])
+                summarydict, _ = summary(net_R, img_shape, device="cuda" if torch.cuda.is_available() else "cpu")
+                right_model_size = summarydict["Total params"]
+                data_x = torch.cat((data_x, torch.tensor([[right_model_size]])), 0)
+                time_start = time.time()
+                net_R.load_state_dict(torch.load(MODEL_DIR + R_model_name + ".pth", map_location=device))
+                times = time.time() - time_start
+                data_y = torch.cat((data_y, torch.tensor([[times]])), 0)
+
+    print("Data has been generated.")
+
+    print("Data to 0 - 1.")
+    load_train_data = data_to_one(data_x, data_y)
+
+    torch.save(load_train_data, path)
+    return load_train_data
+
 def load_train_data(path):
     checkpoint = torch.load(path)
     return checkpoint
@@ -330,5 +373,5 @@ def regression(type: str, num_epochs: int = 15):
 
 if __name__ == "__main__":
 
-    regression("fc")
+    regression("load")
 

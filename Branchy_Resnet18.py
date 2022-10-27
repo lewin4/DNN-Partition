@@ -1,4 +1,6 @@
 # import os
+import os.path
+from Resnet_Model_Pair import *
 import torch
 import math
 from torch import Tensor
@@ -13,6 +15,9 @@ from torch.utils import data
 # from torchvision.models import resnet18
 from typing import Type, Any, Callable, Union, List, Optional
 from FI_loader import get_loaders, SewageDataset
+from collections import OrderedDict
+from config import OUTPUT_DIR
+from config import MODEL_DIR
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
 
@@ -20,13 +25,14 @@ from albumentations.pytorch import ToTensorV2
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # define model parameters
-NUM_EPOCHS = 500
+NUM_EPOCHS = 1
 BATCH_SIZE = 64
 NUM_WORKER = 2
 NUM_CLASSES = 6  # 10 classes for Cifar-10 dataset
 learning_rate = 0.01
-OUTPUT_DIR = 'resnet18_data_out'
-CHECKPOINT_DIR = OUTPUT_DIR + '/models'  # model checkpoints
+branch = 4
+# RESUME = OUTPUT_DIR + "checkpoint.pth"
+RESUME = None
 TRAIN_DATASET = r"D:\Code\data\sewage\classification_aug"
 TEST_DATASET = r"D:\Code\data\sewage\test_dataset"
 
@@ -339,7 +345,11 @@ class LR_Scheduler(object):
 
 class CosineAnnealingLR(LR_Scheduler):
     def __init__(
-        self, optimizer: torch.optim.Optimizer, n_epochs: int, n_batches: int, eta_min: float, last_epoch: int
+            self, optimizer: torch.optim.Optimizer,
+            n_epochs: int,
+            n_batches: int,
+            eta_min: float,
+            last_epoch: int = -1
     ):
         t_max = n_batches * n_epochs
         base_lr = optimizer.param_groups[0]["lr"]
@@ -362,7 +372,7 @@ class CosineAnnealingLR(LR_Scheduler):
 
 
 if __name__ == "__main__":
-    model = ResNet(BasicBlock, [2, 2, 2, 2], num_classes=6, branch=1).to(device)
+    model = ResNet(BasicBlock, [2, 2, 2, 2], num_classes=6, branch=branch).to(device)
     print("Resnet18 is created.")
     print(model)
     x = torch.rand(2, 3, 192, 256).to(device)
@@ -386,8 +396,15 @@ if __name__ == "__main__":
 
     criterion = torch.nn.CrossEntropyLoss()
     n_batch_size = len(train_loader)
+    last_epoch = 0
+    if RESUME is not None:
+        checkpoint = torch.load(RESUME, map_location=device)
+        last_epoch = checkpoint["epoch"]
+        model.load_state_dict(checkpoint["state_dict"])
+        optimizer.load_state_dict(checkpoint["optimizer"])
+
     lr_scheduler = CosineAnnealingLR(
-        optimizer, NUM_EPOCHS, n_batch_size, eta_min=1.e-6, last_epoch=-1)
+        optimizer, NUM_EPOCHS, n_batch_size, eta_min=1.e-6, last_epoch=last_epoch)
     print('LR Scheduler created')
 
     # start training!!
@@ -395,7 +412,8 @@ if __name__ == "__main__":
     model.train()
     total_steps = 1
     end = False
-    for epoch in range(NUM_EPOCHS):
+    for epoch in range(last_epoch, NUM_EPOCHS):
+        print("Train epoch ", epoch)
         for imgs, classes in train_loader:
             imgs, classes = imgs.to(device), classes.to(device)
             optimizer.zero_grad()
@@ -442,10 +460,27 @@ if __name__ == "__main__":
                 break
 
             total_steps += 1
-        if end:
-            torch.save(model.state_dict(), CHECKPOINT_DIR + 'best_model.pt')
+        if end or (epoch == (NUM_EPOCHS-1)):
+            state_dict = model.state_dict()
+            torch.save(state_dict, MODEL_DIR + 'branch' + str(branch) + '_best_model.pth')
+            from Time_Prediction import partition_point_number
+            for partition_point in range(partition_point_number[branch-1]):
+                L_model_name = "NetExit" + str(branch) + "Part" + str(partition_point + 1) + 'L'
+                R_model_name = "NetExit" + str(branch) + "Part" + str(partition_point + 1) + 'R'
+                net_L = eval(L_model_name)()
+                net_L_state_dict = net_L.state_dict()
+                assert set(net_L_state_dict.keys()).issubset(set(state_dict.keys()))
+                net_l_state_dict = OrderedDict({key: state_dict[key] for key in net_L_state_dict.keys()})
+                torch.save(net_l_state_dict, MODEL_DIR + L_model_name + ".pth")
+                net_R = eval(R_model_name)()
+                net_R_state_dict = net_R.state_dict()
+                assert set(net_R_state_dict.keys()).issubset(set(state_dict.keys()))
+                net_r_state_dict = OrderedDict({key: state_dict[key] for key in net_R_state_dict.keys()})
+                torch.save(net_r_state_dict, MODEL_DIR + R_model_name + ".pth")
             break
         lr_scheduler.step()
 
         if epoch % 1 == 0:
-            torch.save(model.state_dict(), CHECKPOINT_DIR + '/epoch_' + str(epoch + 1) + '_model.pt')
+            torch.save({"state_dict": model.state_dict(),
+                        "epoch": epoch,
+                        "optimizer": optimizer.state_dict()}, OUTPUT_DIR + 'checkpoint.pth')
