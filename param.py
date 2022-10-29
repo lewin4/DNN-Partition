@@ -6,6 +6,7 @@ from torchsummary import summary
 from torchstat import stat
 import numpy as np
 from Branchy_Resnet18 import ResNet
+from config import *
 
 
 # device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -25,7 +26,6 @@ if __name__ == "__main__":
         for partition_point in range(partition_point_number[exit_branch]):
             L_model_name = "NetExit" + str(exit_branch + 1) + "Part" + str(partition_point + 1) + 'L'
             R_model_name = "NetExit" + str(exit_branch + 1) + "Part" + str(partition_point + 1) + 'R'
-
 
 
     # model = ResNet(BasicBlock, [2, 2, 2, 2], num_classes=6, branch=1)

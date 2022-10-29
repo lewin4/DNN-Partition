@@ -13,7 +13,7 @@ from torchsummary import summary
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-regression_type = ["conv", "relu", "pool", "bn", "drop", "fc", "load"]
+regression_type = ["conv", "relu", "pool", "bn", "fc", "load"]
 
 
 # 2.使用Class设计模型
@@ -260,7 +260,7 @@ def generate_load_data_and_save(path):
                 L_model_name = "NetExit" + str(exit_branch + 1) + "Part" + str(partition_point + 1) + 'L'
                 R_model_name = "NetExit" + str(exit_branch + 1) + "Part" + str(partition_point + 1) + 'R'
 
-                net_L = eval(L_model_name)()
+                net_L = eval(L_model_name)().eval().to(device)
                 summarydict, summ = summary(net_L, INPUT_SIZE, device="cuda" if torch.cuda.is_available() else "cpu")
                 left_model_size = summarydict["Total params"]
                 data_x = torch.cat((data_x, torch.tensor([[left_model_size]])), 0)
@@ -270,7 +270,7 @@ def generate_load_data_and_save(path):
                 data_y = torch.cat((data_y, torch.tensor([[times]])), 0)
                 del net_L
 
-                net_R = eval(R_model_name)()
+                net_R = eval(R_model_name)().eval().to(device)
                 output_shape = next(reversed(summ.items()))[1]["output_shape"]
                 img_shape = tuple(output_shape[1:])
                 summarydict, _ = summary(net_R, img_shape, device="cuda" if torch.cuda.is_available() else "cpu")
@@ -299,7 +299,7 @@ def save_regression_result(model: torch.nn.Module,
                            max_data_x, min_data_x,
                            max_data_y, min_data_y,
                            path_dir: str):
-    with open(path_dir + "/" + type + ".txt", "w", encoding='utf-8') as f:
+    with open(path_dir + type + ".txt", "w", encoding='utf-8') as f:
         f.write("Weight and bias:")
         for param in model.parameters():
             f.write(str(param.cpu().detach().numpy()) + " ")
@@ -319,7 +319,10 @@ def save_regression_result(model: torch.nn.Module,
 
 
 def regression(type: str, num_epochs: int = 15):
-    train_data_path = "./logs/train_data/" + type + "_train_data.pth"
+    train_data_dir = "./logs/train_data/"
+    if not os.path.exists(train_data_dir):
+        os.makedirs(train_data_dir)
+    train_data_path = train_data_dir + type + "_train_data.pth"
     if os.path.exists(train_data_path):
         checkpoint = load_train_data(train_data_path)
     else:
@@ -335,7 +338,7 @@ def regression(type: str, num_epochs: int = 15):
     print("Init weight and bias: \n", model.liner.weight, "\n", model.liner.bias)
 
     # 3.构建损失函数和优化器的选择
-    print("Starting regression")
+    print("Starting "+ type + " regression...")
     batch_size = 10
 
     n_batch_size = int(data_x.size()[0] / batch_size)
@@ -364,14 +367,20 @@ def regression(type: str, num_epochs: int = 15):
 
     print("regression OK!")
 
+    regression_result_dir = "./logs/regression_result/"
+    if not os.path.exists(regression_result_dir):
+        os.makedirs(regression_result_dir)
     save_regression_result(model,
                            type,
                            max_data_x, min_data_x,
                            max_data_y, min_data_y,
-                           "logs/regression_result")
+                           regression_result_dir)
 
 
 if __name__ == "__main__":
-
-    regression("load")
+    print("="*20)
+    print("This is regression stage.")
+    print("="*20)
+    for type in regression_type:
+        regression(type)
 

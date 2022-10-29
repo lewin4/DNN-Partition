@@ -5,36 +5,40 @@ import torch
 import math
 from torch import Tensor
 import torch.nn as nn
+from tensorboardX import SummaryWriter
+import time
 # import torch.optim as optim
 # import torch.nn.functional as F
 from torch.utils import data
 # import torchvision.datasets as datasets
 # import torchvision.transforms as transforms
 # from collections import OrderedDict
-# from tensorboardX import SummaryWriter
 # from torchvision.models import resnet18
 from typing import Type, Any, Callable, Union, List, Optional
 from FI_loader import get_loaders, SewageDataset
 from collections import OrderedDict
 from config import OUTPUT_DIR
 from config import MODEL_DIR
-import albumentations as A
-from albumentations.pytorch import ToTensorV2
+import socket
 
 # define pytorch device - useful for device-agnostic execution
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # define model parameters
-NUM_EPOCHS = 1
+NUM_EPOCHS = 100
 BATCH_SIZE = 64
 NUM_WORKER = 2
 NUM_CLASSES = 6  # 10 classes for Cifar-10 dataset
 learning_rate = 0.01
-branch = 4
+# branch = 2
 # RESUME = OUTPUT_DIR + "checkpoint.pth"
 RESUME = None
-TRAIN_DATASET = r"D:\Code\data\sewage\classification_aug"
-TEST_DATASET = r"D:\Code\data\sewage\test_dataset"
+if socket.gethostname() == 'LAPTOP-5G1BF2CK':
+    TRAIN_DATASET = r"D:\Code\data\sewage\classification_aug"
+    TEST_DATASET = r"D:\Code\data\sewage\test_dataset"
+elif socket.gethostname() == 'DESKTOP-D6L914M':
+    TRAIN_DATASET = r"E:\LY\data\classification_aug"
+    TEST_DATASET = r"E:\LY\data\test_dataset"
 
 def conv3x3(in_planes: int, out_planes: int, stride: int = 1, groups: int = 1, dilation: int = 1) -> nn.Conv2d:
     """3x3 convolution with padding"""
@@ -372,115 +376,129 @@ class CosineAnnealingLR(LR_Scheduler):
 
 
 if __name__ == "__main__":
-    model = ResNet(BasicBlock, [2, 2, 2, 2], num_classes=6, branch=branch).to(device)
-    print("Resnet18 is created.")
-    print(model)
-    x = torch.rand(2, 3, 192, 256).to(device)
-    y = model(x)
-    print(y)
-    train_loader, val_loader = get_loaders(TRAIN_DATASET,
-                                         BATCH_SIZE,
-                                         [192, 256],
-                                         num_workers=NUM_WORKER)
+    for branch in range(1, 5):
+        model = ResNet(BasicBlock, [2, 2, 2, 2], num_classes=6, branch=branch).to(device)
+        print("Resnet18 is created.")
+        print(model)
+        train_loader, val_loader = get_loaders(TRAIN_DATASET,
+                                             BATCH_SIZE,
+                                             [192, 256],
+                                             num_workers=NUM_WORKER)
 
-    test_dataset = SewageDataset(TEST_DATASET, mode="test")
-    test_loader = data.DataLoader(test_dataset,
-                                  BATCH_SIZE,
-                                  shuffle=True,
-                                  pin_memory=True,
-                                  num_workers=NUM_WORKER)
-    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
-    for param_group in optimizer.param_groups:
-        param_group["initial_lr"] = learning_rate
-    print('Optimizer created')
+        test_dataset = SewageDataset(TEST_DATASET, mode="test")
+        test_loader = data.DataLoader(test_dataset,
+                                      BATCH_SIZE,
+                                      shuffle=True,
+                                      pin_memory=True,
+                                      num_workers=NUM_WORKER)
+        optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+        for param_group in optimizer.param_groups:
+            param_group["initial_lr"] = learning_rate
+        print('Optimizer created')
 
-    criterion = torch.nn.CrossEntropyLoss()
-    n_batch_size = len(train_loader)
-    last_epoch = 0
-    if RESUME is not None:
-        checkpoint = torch.load(RESUME, map_location=device)
-        last_epoch = checkpoint["epoch"]
-        model.load_state_dict(checkpoint["state_dict"])
-        optimizer.load_state_dict(checkpoint["optimizer"])
+        criterion = torch.nn.CrossEntropyLoss()
+        n_batch_size = len(train_loader)
+        last_epoch = 0
+        if RESUME is not None:
+            checkpoint = torch.load(RESUME, map_location=device)
+            last_epoch = checkpoint["epoch"]
+            model.load_state_dict(checkpoint["state_dict"])
+            optimizer.load_state_dict(checkpoint["optimizer"])
 
-    lr_scheduler = CosineAnnealingLR(
-        optimizer, NUM_EPOCHS, n_batch_size, eta_min=1.e-6, last_epoch=last_epoch)
-    print('LR Scheduler created')
+        lr_scheduler = CosineAnnealingLR(
+            optimizer, NUM_EPOCHS, n_batch_size, eta_min=1.e-6, last_epoch=last_epoch)
+        print('LR Scheduler created')
 
-    # start training!!
-    print('Starting training...')
-    model.train()
-    total_steps = 1
-    end = False
-    for epoch in range(last_epoch, NUM_EPOCHS):
-        print("Train epoch ", epoch)
-        for imgs, classes in train_loader:
-            imgs, classes = imgs.to(device), classes.to(device)
-            optimizer.zero_grad()
-            # calculate the loss
-            output = model(imgs)
-            loss = criterion(output, classes)
+        # start training!!
+        print('Starting training...')
+        model.train()
+        total_steps = 1
+        end = False
+        time_local = time.localtime()
+        time_str = str(time_local[1]) + "m" + str(time_local[2]) + "d" + str(time_local[3]) + "h" + str(
+            time_local[4]) + "m" + str(time_local[5]) + "s"
+        writer_dir = OUTPUT_DIR + "logs/branch" + str(branch) + "/" + time_str + "/"
+        summary_writer = SummaryWriter(writer_dir)
+        best_acc = 0.
+        from tqdm import tqdm
+        for epoch in range(last_epoch, NUM_EPOCHS):
+            for imgs, classes in tqdm(train_loader, desc="Train epoch: {}".format(epoch)):
+                imgs, classes = imgs.to(device), classes.to(device)
+                optimizer.zero_grad()
+                # calculate the loss
+                output = model(imgs)
+                loss = criterion(output, classes)
+                summary_writer.add_scalar("train loss", loss.item(), total_steps)
+                # update the parameters
+                loss.backward()
+                optimizer.step()
 
-            # update the parameters
-            loss.backward()
-            optimizer.step()
+                if total_steps % 50 == 0:
+                    _, preds = torch.max(output, 1)
+                    accuracy = torch.sum(preds == classes)
 
-            if total_steps % 50 == 0:
-                _, preds = torch.max(output, 1)
-                accuracy = torch.sum(preds == classes)
+                    print('Epoch: {} \tStep: {} \tLoss: {:.4f} \tAcc: {}'
+                          .format(epoch + 1, total_steps, loss.item(), accuracy.item()))
 
-                print('Epoch: {} \tStep: {} \tLoss: {:.4f} \tAcc: {}'
-                      .format(epoch + 1, total_steps, loss.item(), accuracy.item()))
+                if total_steps % 100 == 0:
 
-            if total_steps % 300 == 0:
+                    # ~~~~~~~VALIDATION~~~~~~~~~
+                    print("Val {}".format(total_steps))
+                    correct_count = 0
+                    total_count = 0
+                    model.eval()
+                    for images, labels in val_loader:
+                        images, labels = images.to(device), labels.to(device)
+                        with torch.no_grad():  # no gradient descent!
+                            logps = model(images)
 
-                # ~~~~~~~VALIDATION~~~~~~~~~
-                print("Val {}".format(total_steps))
-                correct_count = 0
-                total_count = 0
-                model.eval()
-                for images, labels in val_loader:
-                    images, labels = images.to(device), labels.to(device)
-                    with torch.no_grad():  # no gradient descent!
-                        logps = model(images)
+                        logps = logps.detach()
+                        targets = labels.detach()
 
-                    logps = logps.detach()
-                    targets = labels.detach()
+                        _, predicted = logps.max(dim=1)
+                        total_count += torch.tensor(targets.size(0), dtype=torch.float)
+                        correct_count += predicted.eq(targets).cpu().float().sum()
 
-                    _, predicted = logps.max(dim=1)
-                    total_count += torch.tensor(targets.size(0), dtype=torch.float)
-                    correct_count += predicted.eq(targets).cpu().float().sum()
+                    print("Number Of Images Tested =", total_count)
+                    acc = (correct_count / total_count)
+                    if acc >= best_acc:
+                        best_acc = acc
+                        if not os.path.exists(MODEL_DIR):
+                            os.makedirs(MODEL_DIR)
+                        state_dict = model.state_dict()
+                        torch.save(state_dict, MODEL_DIR + 'branch' + str(branch) + '_best_model.pth')
+                        print("Saved best acc model: {}".format(best_acc))
+                    print("Model Accuracy =", acc)
+                    summary_writer.add_scalar("val acc", acc, total_steps)
+                    if acc > 0.95:
+                        end = True
+                    model.train()
+                if end:
+                    break
 
-                print("Number Of Images Tested =", total_count)
-                print("Model Accuracy =", (correct_count / total_count))
-                if correct_count / total_count > 0.95:
-                    end = True
-                model.train()
-            if end:
+                total_steps += 1
+            if end or (epoch == (NUM_EPOCHS-1)):
+                state_dict = torch.load(MODEL_DIR + 'branch' + str(branch) + '_best_model.pth', map_location=device)
+                from Time_Prediction import partition_point_number
+                for partition_point in range(partition_point_number[branch-1]):
+                    L_model_name = "NetExit" + str(branch) + "Part" + str(partition_point + 1) + 'L'
+                    R_model_name = "NetExit" + str(branch) + "Part" + str(partition_point + 1) + 'R'
+                    net_L = eval(L_model_name)()
+                    net_L_state_dict = net_L.state_dict()
+                    assert set(net_L_state_dict.keys()).issubset(set(state_dict.keys()))
+                    net_l_state_dict = OrderedDict({key: state_dict[key] for key in net_L_state_dict.keys()})
+                    torch.save(net_l_state_dict, MODEL_DIR + L_model_name + ".pth")
+                    net_R = eval(R_model_name)()
+                    net_R_state_dict = net_R.state_dict()
+                    assert set(net_R_state_dict.keys()).issubset(set(state_dict.keys()))
+                    net_r_state_dict = OrderedDict({key: state_dict[key] for key in net_R_state_dict.keys()})
+                    torch.save(net_r_state_dict, MODEL_DIR + R_model_name + ".pth")
                 break
+            lr_scheduler.step()
 
-            total_steps += 1
-        if end or (epoch == (NUM_EPOCHS-1)):
-            state_dict = model.state_dict()
-            torch.save(state_dict, MODEL_DIR + 'branch' + str(branch) + '_best_model.pth')
-            from Time_Prediction import partition_point_number
-            for partition_point in range(partition_point_number[branch-1]):
-                L_model_name = "NetExit" + str(branch) + "Part" + str(partition_point + 1) + 'L'
-                R_model_name = "NetExit" + str(branch) + "Part" + str(partition_point + 1) + 'R'
-                net_L = eval(L_model_name)()
-                net_L_state_dict = net_L.state_dict()
-                assert set(net_L_state_dict.keys()).issubset(set(state_dict.keys()))
-                net_l_state_dict = OrderedDict({key: state_dict[key] for key in net_L_state_dict.keys()})
-                torch.save(net_l_state_dict, MODEL_DIR + L_model_name + ".pth")
-                net_R = eval(R_model_name)()
-                net_R_state_dict = net_R.state_dict()
-                assert set(net_R_state_dict.keys()).issubset(set(state_dict.keys()))
-                net_r_state_dict = OrderedDict({key: state_dict[key] for key in net_R_state_dict.keys()})
-                torch.save(net_r_state_dict, MODEL_DIR + R_model_name + ".pth")
-            break
-        lr_scheduler.step()
-
-        if epoch % 1 == 0:
-            torch.save({"state_dict": model.state_dict(),
-                        "epoch": epoch,
-                        "optimizer": optimizer.state_dict()}, OUTPUT_DIR + 'checkpoint.pth')
+            if epoch % 1 == 0:
+                if not os.path.exists(OUTPUT_DIR):
+                    os.makedirs(OUTPUT_DIR)
+                torch.save({"state_dict": model.state_dict(),
+                            "epoch": epoch,
+                            "optimizer": optimizer.state_dict()}, OUTPUT_DIR + 'checkpoint.pth')
