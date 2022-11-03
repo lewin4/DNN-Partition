@@ -17,8 +17,7 @@ from torch.utils import data
 from typing import Type, Any, Callable, Union, List, Optional
 from FI_loader import get_loaders, SewageDataset
 from collections import OrderedDict
-from config import OUTPUT_DIR
-from config import MODEL_DIR
+from config import OUTPUT_DIR, MODEL_DIR, TRAIN_DATASET, TEST_DATASET, BATCH_SIZE
 import socket
 
 # define pytorch device - useful for device-agnostic execution
@@ -26,19 +25,18 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # define model parameters
 NUM_EPOCHS = 100
-BATCH_SIZE = 64
 NUM_WORKER = 2
 NUM_CLASSES = 6  # 10 classes for Cifar-10 dataset
 learning_rate = 0.01
 # branch = 2
 # RESUME = OUTPUT_DIR + "checkpoint.pth"
 RESUME = None
-if socket.gethostname() == 'LAPTOP-5G1BF2CK':
-    TRAIN_DATASET = r"D:\Code\data\sewage\classification_aug"
-    TEST_DATASET = r"D:\Code\data\sewage\test_dataset"
-elif socket.gethostname() == 'DESKTOP-D6L914M':
-    TRAIN_DATASET = r"E:\LY\data\classification_aug"
-    TEST_DATASET = r"E:\LY\data\test_dataset"
+# if socket.gethostname() == 'LAPTOP-5G1BF2CK':
+#     TRAIN_DATASET = r"D:\Code\data\sewage\classification_aug"
+#     TEST_DATASET = r"D:\Code\data\sewage\test_dataset"
+# elif socket.gethostname() == 'DESKTOP-D6L914M':
+#     TRAIN_DATASET = r"E:\LY\data\classification_aug"
+#     TEST_DATASET = r"E:\LY\data\test_dataset"
 
 def conv3x3(in_planes: int, out_planes: int, stride: int = 1, groups: int = 1, dilation: int = 1) -> nn.Conv2d:
     """3x3 convolution with padding"""

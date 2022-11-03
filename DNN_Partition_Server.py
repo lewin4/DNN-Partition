@@ -1,3 +1,5 @@
+import os
+from utils import load_regression_data
 import thriftpy2 as thriftpy
 import numpy as np
 import torch
@@ -8,15 +10,16 @@ from config import *
 
 def server_start():
     partition_thrift = thriftpy.load('partition.thrift', module_name='partition_thrift')
-    server = make_server(partition_thrift.Partition, Dispacher(), '127.0.0.1', 6000)
+    server = make_server(partition_thrift.Partition, Dispacher(), '127.0.0.1', 6000, client_timeout=100000)
     print('Thriftpy server is listening...')
     server.serve()
 
 
 class Dispacher(object):
-    def partition(self, file, ep, pp):
+    @staticmethod
+    def partition(file, ep, pp):
         for filename, content in file.items():
-            with open('recv_'+filename, 'wb') as f:
+            with open('recv_' + filename, 'wb') as f:
                 f.write(content)
 
         readed = np.load('recv_intermediate.npy')
@@ -26,6 +29,14 @@ class Dispacher(object):
         pred = str((prob.index(max(prob)), max(prob)))
         return pred
 
+    @staticmethod
+    def load_server_regression_result(server_regression_result_dir: str = REGRESSION_RESULT_DIR):
+        data = load_regression_data(server_regression_result_dir)
+        return data
+
 
 if __name__ == '__main__':
     server_start()
+    # D = Dispacher()
+    # data = D.load_server_regression_result()
+    # print(data)

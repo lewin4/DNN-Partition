@@ -10,10 +10,9 @@ from Branchy_Resnet18 import CosineAnnealingLR
 from typing import Dict
 from Resnet_Model_Pair import *
 from torchsummary import summary
+from config import regression_type, REGRESSION_RESULT_DIR
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
-regression_type = ["conv", "relu", "pool", "bn", "fc", "load"]
 
 
 # 2.使用Class设计模型
@@ -188,7 +187,7 @@ def generate_bn_data_and_save(path):
 
 def generate_pool_data_and_save(path):
     print("Generating pool data ... ")
-    pool = torch.nn.MaxPool2d(kernel_size=3, stride=2, padding=1).to(device)
+    pool = torch.nn.MaxPool2d(kernel_size=3, stride=2, padding=1).to(device).eval()
 
     data_x = torch.DoubleTensor(0, 2)
     data_y = torch.DoubleTensor(0, 1)
@@ -228,7 +227,7 @@ def generate_fc_data_and_save(path):
         h = random.randint(128, 24576)
         w = random.randint(8, 128)
         print("h, w: ", h, w)
-        fc = torch.nn.Linear(h, w).to(device)
+        fc = torch.nn.Linear(h, w).to(device).eval()
         batch_tensor = torch.rand((16, h)).to(device)
         x0 = np.prod(batch_tensor.size())
         with torch.no_grad():
@@ -289,6 +288,7 @@ def generate_load_data_and_save(path):
     torch.save(load_train_data, path)
     return load_train_data
 
+
 def load_train_data(path):
     checkpoint = torch.load(path)
     return checkpoint
@@ -336,7 +336,7 @@ def regression(type: str, num_epochs: int = 15):
 
     model = get_regression_model(type).to(device)  # 创建类LinearModel的实例
     print("Init weight and bias: \n", model.liner.weight, "\n", model.liner.bias)
-
+    stat = model.state_dict()
     # 3.构建损失函数和优化器的选择
     print("Starting "+ type + " regression...")
     batch_size = 10
@@ -367,20 +367,18 @@ def regression(type: str, num_epochs: int = 15):
 
     print("regression OK!")
 
-    regression_result_dir = "./logs/regression_result/"
-    if not os.path.exists(regression_result_dir):
-        os.makedirs(regression_result_dir)
+    if not os.path.exists(REGRESSION_RESULT_DIR):
+        os.makedirs(REGRESSION_RESULT_DIR)
     save_regression_result(model,
                            type,
                            max_data_x, min_data_x,
                            max_data_y, min_data_y,
-                           regression_result_dir)
+                           REGRESSION_RESULT_DIR)
 
 
 if __name__ == "__main__":
     print("="*20)
     print("This is regression stage.")
     print("="*20)
-    for type in regression_type:
-        regression(type)
-
+    # for layer_type in regression_type:
+    regression("conv")

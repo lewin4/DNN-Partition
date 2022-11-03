@@ -26,8 +26,8 @@ def infer(cORs, ep, pp, input):
 
     # load params
     LOrR = 'L' if cORs == CLIENT else 'R'
-    params_path = PARAM_PATH + netPair + LOrR + ".pth"
-    load_model_param(net, "alexnet_data_out/models/epoch_1_model.pt")
+    params_path = PARAM_PATH_DIR + netPair + LOrR + ".pth"
+    load_model_param(net, params_path)
 
     net.eval()
 
