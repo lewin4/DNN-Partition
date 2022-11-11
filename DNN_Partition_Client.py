@@ -17,7 +17,7 @@ FILENAME = 'intermediate.npy'
 
 def client_start():
     partition_thrift = thriftpy.load('partition.thrift', module_name='partition_thrift')
-    return make_client(partition_thrift.Partition, '127.0.0.1', 6000, timeout=100000)
+    return make_client(partition_thrift.Partition, '202.199.117.66', 6000, timeout=100000)
 
 
 def file_info(filename: str):

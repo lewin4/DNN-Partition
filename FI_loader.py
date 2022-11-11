@@ -7,6 +7,7 @@ from torch.utils.data.dataloader import DataLoader
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
 from typing import List
+import torchvision.transforms as transforms
 
 
 class SewageDataset(Dataset):
@@ -30,15 +31,18 @@ class SewageDataset(Dataset):
         elif mode == "val":
             self.images = self.images[int(radio[0] * self.len):]
         elif mode == "test":
-            self.transform = A.Compose(
+            self.transform = transforms.Compose(
                 [
-                    A.Resize(height=192, width=256),
-                    A.Normalize(
-                        mean=[0.5330, 0.5463, 0.5493],
-                        std=[0.1143, 0.1125, 0.1007],
-                        max_pixel_value=255.0,
-                    ),
-                    ToTensorV2(),
+                    # A.Resize(height=192, width=256),
+                    transforms.Resize((192, 256)),
+                    # A.Normalize(
+                    #     mean=[0.5330, 0.5463, 0.5493],
+                    #     std=[0.1143, 0.1125, 0.1007],
+                    #     max_pixel_value=255.0,
+                    # ),
+                    transforms.ToTensor(),
+                    transforms.Normalize(mean=[0.5330, 0.5463, 0.5493],
+                                         std=[0.1143, 0.1125, 0.1007],),
                 ],)
         self.len = len(self.images)
 
@@ -48,11 +52,11 @@ class SewageDataset(Dataset):
     def __getitem__(self, item):
         img_path = self.images[item]
         image = Image.open(img_path)
-        image = np.array(image)
+        # image = np.array(image)
 
         if self.transform is not None:
-            augmentations = self.transform(image=image)
-            image = augmentations["image"]
+            image = self.transform(image)
+            # image = augmentations["image"]
         else:
             raise ValueError("Transformer is None.")
 
@@ -73,30 +77,33 @@ def get_loaders(image_dir: str,
     if radio is None:
         radio = [0.75, 0.25]
     if train_transform is None:
-        train_transform = A.Compose(
+        train_transform = transforms.Compose(
             [
-                A.Resize(height=img_shape[0], width=img_shape[1]),
-                A.Rotate(limit=35, p=1.0),
-                A.HorizontalFlip(p=0.5),
-                A.VerticalFlip(p=0.1),
-                A.Normalize(
-                    mean=[0.5330, 0.5463, 0.5493],
-                    std=[0.1143, 0.1125, 0.1007],
-                    max_pixel_value=255.0,
-                ),
-                ToTensorV2(),
+                transforms.Resize((img_shape[0], img_shape[1])),
+                transforms.RandomRotation(35),
+                # A.Rotate(limit=35, p=1.0),
+                # A.HorizontalFlip(p=0.5),
+                transforms.RandomHorizontalFlip(p=0.5),
+                # A.VerticalFlip(p=0.1),
+                transforms.RandomVerticalFlip(p=0.1),
+                # A.Normalize(
+                #     mean=[0.5330, 0.5463, 0.5493],
+                #     std=[0.1143, 0.1125, 0.1007],
+                #     max_pixel_value=255.0,
+                # ),
+                # ToTensorV2(),
+                transforms.ToTensor(),
+                transforms.Normalize(mean=[0.5330, 0.5463, 0.5493],
+                                     std=[0.1143, 0.1125, 0.1007], ),
             ],
         )
     if val_transform is None:
-        val_transform = A.Compose(
+        val_transform = transforms.Compose(
             [
-                A.Resize(height=img_shape[0], width=img_shape[1]),
-                A.Normalize(
-                    mean=[0.5330, 0.5463, 0.5493],
-                    std=[0.1143, 0.1125, 0.1007],
-                    max_pixel_value=255.0,
-                ),
-                ToTensorV2(),
+                transforms.Resize((img_shape[0], img_shape[1])),
+                transforms.ToTensor(),
+                transforms.Normalize(mean=[0.5330, 0.5463, 0.5493],
+                                     std=[0.1143, 0.1125, 0.1007], ),
             ],
         )
     train_dataset = SewageDataset(image_dir, radio=radio, mode="train", transform=train_transform)
