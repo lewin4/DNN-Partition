@@ -26,7 +26,7 @@ def infer(cORs, ep, pp, input):
 
     # load params
     LOrR = 'L' if cORs == CLIENT else 'R'
-    params_path = PARAM_PATH_DIR + netPair + LOrR + ".pth"
+    params_path = MODEL_DIR + netPair + LOrR + ".pth"
     load_model_param(net, params_path)
 
     net.eval()

@@ -4,3 +4,4 @@
 /.idea/
 /__pycache__/
 /resnet18_data_out/
+/alexnet_data_out/
