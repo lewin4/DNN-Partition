@@ -1,11 +1,12 @@
 import os
+import torch
 import numpy as np
 from PIL import Image
 from torch.utils.data import Dataset
 import random
 from torch.utils.data.dataloader import DataLoader
-import albumentations as A
-from albumentations.pytorch import ToTensorV2
+#import albumentations as A
+#from albumentations.pytorch import ToTensorV2
 from typing import List
 import torchvision.transforms as transforms
 
@@ -60,7 +61,7 @@ class SewageDataset(Dataset):
         else:
             raise ValueError("Transformer is None.")
 
-        mask = np.int64(img_path.split("\\")[-2])
+        mask = torch.Tensor([int(img_path.split("/")[-2]),])
 
         return image, mask
 

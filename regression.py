@@ -1,7 +1,5 @@
 import os.path
 
-import torch
-import matplotlib.pyplot as plt
 import numpy as np
 import time
 import random
@@ -100,7 +98,7 @@ def generate_conv_data_and_save(path: str) -> Dict:
             conv = value[0].eval().to(device)
             x1 = value[1]
             x2 = value[2]
-            data = torch.rand(8, conv.in_channels, 192, 256).to(device)
+            data = torch.rand(1, conv.in_channels, 192, 256).to(device)
             with torch.no_grad():
                 time_start = time.time()
                 y = conv(data)
@@ -380,5 +378,5 @@ if __name__ == "__main__":
     print("="*20)
     print("This is regression stage.")
     print("="*20)
-    # for layer_type in regression_type:
-    regression("conv")
+    for layer_type in regression_type:
+        regression("conv")

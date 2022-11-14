@@ -17,7 +17,7 @@ FILENAME = 'intermediate.npy'
 
 def client_start():
     partition_thrift = thriftpy.load('partition.thrift', module_name='partition_thrift')
-    return make_client(partition_thrift.Partition, '202.199.117.66', 6000, timeout=100000)
+    return make_client(partition_thrift.Partition, '202.199.116.128', 6000, timeout=100000)
 
 
 def file_info(filename: str):
@@ -40,11 +40,15 @@ if __name__ == '__main__':
     # print('Predict answer is: ' + client.partition(info, 3, 3))
     test_dataset = SewageDataset(TEST_DATASET, mode="test")
     test_loader = data.DataLoader(test_dataset,
-                                  2,
+                                  1,
                                   shuffle=True,
                                   pin_memory=True,
                                   num_workers=NUM_WORKER)
-    images, labels = next(iter(test_loader))
+
+#    for images, labels in test_loader:
+#        break
+
+    images, labels = test_dataset[0]
 
     # time start include optimize and translate server regression data
     start = time.time()
