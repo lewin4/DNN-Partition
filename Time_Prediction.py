@@ -11,7 +11,6 @@ partition_point_number = [2, 2, 3, 4]
 
 
 def get_layer_data(net: torch.nn.Module,
-                   inter_batch_size,
                    input_size,
                    device: str="cuda") -> (OrderedDict, Tuple):
     def register_hook(name, module):
@@ -60,7 +59,7 @@ def get_layer_data(net: torch.nn.Module,
     else:
         dtype = torch.FloatTensor
 
-    x = torch.rand(inter_batch_size, *input_size).type(dtype)
+    x = torch.rand(input_size).type(dtype)
 
     # make a forward pass
     # print(x.shape)
@@ -146,7 +145,6 @@ class DeviceTime:
 
     # tool
     def predict_time(self, net: torch.nn.Module,
-                     inter_batch_size,
                      input_size,
                      device: str="cuda"):
         '''
@@ -154,7 +152,7 @@ class DeviceTime:
         :param partition_point_number: the index of partition point
         :return:
         '''
-        layer_data, output_size = get_layer_data(net, inter_batch_size, input_size, device)
+        layer_data, output_size = get_layer_data(net, input_size, device)
 
         time = 0
         for layer_type, items in layer_data.items():
@@ -185,7 +183,6 @@ class ServerTime(DeviceTime):
 
     # tool
     def predict_time(self, net: torch.nn.Module,
-                     inter_batch_size,
                      input_size,
                      device: str="cuda"):
         '''
@@ -199,7 +196,7 @@ class ServerTime(DeviceTime):
         List[Dict[类型：List[输入大小, 输出大小, 计算时间]],]
         仿照torchsummary写，勾出来之后
         '''
-        layer_data, _ = get_layer_data(net, inter_batch_size, input_size, device)
+        layer_data, _ = get_layer_data(net, input_size, device)
 
         time = 0
         for layer_type, items in layer_data.items():
