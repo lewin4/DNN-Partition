@@ -5,3 +5,5 @@
 /__pycache__/
 /resnet18_data_out/
 /alexnet_data_out/
+/intermediate.npy
+/recv_intermediate.npy

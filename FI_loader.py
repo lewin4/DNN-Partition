@@ -16,6 +16,7 @@ class SewageDataset(Dataset):
         if radio is None:
             radio = [0.75, 0.25]
         self.image_dir = image_dir
+        self.split = "/" if os.name == "posix" else "\\"
         self.transform = transform
         self.images = []
         classes = os.listdir(self.image_dir)
@@ -61,7 +62,7 @@ class SewageDataset(Dataset):
         else:
             raise ValueError("Transformer is None.")
 
-        mask = torch.Tensor([int(img_path.split("/")[-2]),])
+        mask = torch.Tensor([int(img_path.split(self.split)[-2]),])
 
         return image, mask
 

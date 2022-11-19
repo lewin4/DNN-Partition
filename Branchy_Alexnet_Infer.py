@@ -30,8 +30,9 @@ def infer(cORs, ep, pp, input):
     load_model_param(net, params_path)
 
     net.eval()
-
-    return net(input)
+    with torch.no_grad():
+        infer_out = net(input)
+    return infer_out
 
 
 if __name__ == "__main__":

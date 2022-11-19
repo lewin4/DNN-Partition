@@ -48,7 +48,9 @@ if __name__ == '__main__':
 #    for images, labels in test_loader:
 #        break
 
-    images, labels = test_dataset[0]
+    images, labels = test_dataset[5]
+    if len(images.size()) == 3:
+        images = images.unsqueeze(0)
 
     # time start include optimize and translate server regression data
     start = time.time()

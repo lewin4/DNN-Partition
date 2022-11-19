@@ -18,7 +18,9 @@ class LinearModel(torch.nn.Module):
 
     def __init__(self, in_channel, out_channel):
         super(LinearModel, self).__init__()
-        self.liner = torch.nn.Linear(in_channel, out_channel, dtype=torch.double)  # (1,1)表示输入和输出的维度
+        torch.set_default_dtype(torch.float64)
+        self.liner = torch.nn.Linear(in_channel, out_channel)  # (1,1)表示输入和输出的维度
+        torch.set_default_dtype(torch.float32)
 
     def forward(self, x):
         y_pred = self.liner(x)
@@ -375,8 +377,11 @@ def regression(type: str, num_epochs: int = 15):
 
 
 if __name__ == "__main__":
-    print("="*20)
+    print("="*30)
     print("This is regression stage.")
-    print("="*20)
+    print("="*30)
     for layer_type in regression_type:
-        regression("conv")
+        print("="*30)
+        print("Regression " + layer_type + ".")
+        print("="*30)
+        regression(layer_type)
