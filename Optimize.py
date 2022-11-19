@@ -76,7 +76,7 @@ def Optimize(latency_threshold, server_regression_data, client_regression_data):
         if times[partition_point] < latency_threshold:
             return exit_branch + 1, partition_point + 1
     # if no ep and pp can satisfy latency required then return min-time's ep and pp
-    print("No ep and pp can satisfy latency required then return min-time's ep and pp")
+    print("No ep and pp can satisfy latency required ({:.5f}) then return min-time's ep and pp.".format(latency_threshold))
     return minep + 1, minpp + 1
 
 
