@@ -71,6 +71,7 @@ def Optimize(latency_threshold, server_regression_data, client_regression_data):
 
             total_time = device_time + server_time + model_load_time + \
                          output_size / B
+            print("Time of ep {} and pp {}: {}".format(exit_branch, partition_point, total_time))
             times.append(total_time)
 
         # find min latency in this branch

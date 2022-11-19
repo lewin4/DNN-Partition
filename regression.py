@@ -136,7 +136,7 @@ def generate_relu_data_and_save(path):
             y = relu(batch_tensor)
             times = time.time() - time_start
         data_y = torch.cat((data_y, torch.tensor([[times]])), 0)
-        data_x = torch.cat((data_x, torch.tensor([[x]])), 0)
+        data_x = torch.cat((data_x, torch.tensor([[x]], dtype=torch.float64)), 0)
 
     print("Data has been generated.")
 
@@ -174,7 +174,7 @@ def generate_bn_data_and_save(path):
             y = bn_layers[c_id].to(device).eval()(batch_tensor)
             times = time.time() - time_start
         data_y = torch.cat((data_y, torch.tensor([[times]])), 0)
-        data_x = torch.cat((data_x, torch.tensor([[x]])), 0)
+        data_x = torch.cat((data_x, torch.tensor([[x]], dtype=torch.float64)), 0)
 
     print("Data has been generated.")
 
@@ -206,7 +206,7 @@ def generate_pool_data_and_save(path):
             times = time.time() - time_start
         x1 = np.prod(y.size())
         data_y = torch.cat((data_y, torch.tensor([[times]])), 0)
-        data_x = torch.cat((data_x, torch.tensor([[x0, x1]])), 0)
+        data_x = torch.cat((data_x, torch.tensor([[x0, x1]], dtype=torch.float64)), 0)
 
     print("Data has been generated.")
 
@@ -236,7 +236,7 @@ def generate_fc_data_and_save(path):
             times = time.time() - time_start
         x1 = np.prod(y.size())
         data_y = torch.cat((data_y, torch.tensor([[times]])), 0)
-        data_x = torch.cat((data_x, torch.tensor([[x0, x1]])), 0)
+        data_x = torch.cat((data_x, torch.tensor([[x0, x1]], dtype=torch.float64)), 0)
 
     print("Data has been generated.")
 
@@ -262,7 +262,7 @@ def generate_load_data_and_save(path):
                 net_L = eval(L_model_name)().eval().to(device)
                 summarydict, summ = summary(net_L, INPUT_SIZE, device="cuda" if torch.cuda.is_available() else "cpu")
                 left_model_size = summarydict["Total params"]
-                data_x = torch.cat((data_x, torch.tensor([[left_model_size]])), 0)
+                data_x = torch.cat((data_x, torch.tensor([[left_model_size]], dtype=torch.float64)), 0)
                 time_start = time.time()
                 net_L.load_state_dict(torch.load(MODEL_DIR + L_model_name + ".pth", map_location=device))
                 times = time.time() - time_start
@@ -274,7 +274,7 @@ def generate_load_data_and_save(path):
                 img_shape = tuple(output_shape[1:])
                 summarydict, _ = summary(net_R, img_shape, device="cuda" if torch.cuda.is_available() else "cpu")
                 right_model_size = summarydict["Total params"]
-                data_x = torch.cat((data_x, torch.tensor([[right_model_size]])), 0)
+                data_x = torch.cat((data_x, torch.tensor([[right_model_size]], dtype=torch.float64)), 0)
                 time_start = time.time()
                 net_R.load_state_dict(torch.load(MODEL_DIR + R_model_name + ".pth", map_location=device))
                 times = time.time() - time_start
@@ -299,10 +299,11 @@ def save_regression_result(model: torch.nn.Module,
                            max_data_x, min_data_x,
                            max_data_y, min_data_y,
                            path_dir: str):
+    print("Save regression result -- " + type)
     with open(path_dir + type + ".txt", "w", encoding='utf-8') as f:
         f.write("Weight and bias:")
         for param in model.parameters():
-            f.write(str(param.cpu().detach().numpy()) + " ")
+            f.write(str(param) + " ")
         f.write("\nx max and min: {}, {}\n".format(max_data_x, min_data_x))
         f.write("y max and min: {}, {}\n".format(max_data_y, min_data_y))
     print("Weight and Bias: \n", model.liner.weight, model.liner.bias)
@@ -314,8 +315,8 @@ def save_regression_result(model: torch.nn.Module,
         "y_max": max_data_y,
         "y_min": min_data_y,
     }
-    torch.save(checkpoint, path_dir + "/" + type + ".pth")
-    print("model is saved")
+    model_save_path = path_dir + type + ".pth"
+    torch.save(checkpoint, model_save_path)
 
 
 def regression(type: str, num_epochs: int = 15):

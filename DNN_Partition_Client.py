@@ -17,7 +17,7 @@ FILENAME = 'intermediate.npy'
 
 def client_start():
     partition_thrift = thriftpy.load('partition.thrift', module_name='partition_thrift')
-    return make_client(partition_thrift.Partition, '202.199.116.128', 6000, timeout=100000)
+    return make_client(partition_thrift.Partition, '202.199.116.128', 6000, timeout=3000)
 
 
 def file_info(filename: str):
@@ -32,9 +32,6 @@ if __name__ == '__main__':
     # threshold = float(input('Please input latency threshold: '))
     threshold = 1.0
     # get test data
-
-    # client init
-    client = client_start()
 
     # info = file_info(FILENAME)
     # print('Predict answer is: ' + client.partition(info, 3, 3))
@@ -52,13 +49,21 @@ if __name__ == '__main__':
     if len(images.size()) == 3:
         images = images.unsqueeze(0)
 
+    # client init
+    client = client_start()
+
     # time start include optimize and translate server regression data
     start = time.time()
+    print("Try to request server device data.")
     server_regression_data = client.load_server_regression_result()
+    client.close()
+    print("Get server device data successfully.")
+
     client_regression_data = load_regression_data(REGRESSION_RESULT_DIR)
 
     # get partition point and exit point
     ep, pp = Optimize(threshold, server_regression_data, client_regression_data)
+    # ep, pp = 1, 1
     print('Branch is %d, and partition point is %d' %(ep, pp))
 
     # infer left part
@@ -69,6 +74,9 @@ if __name__ == '__main__':
     # save intermediate for RPC process
     intermediate = out.detach().numpy()
     np.save('intermediate.npy', intermediate)
+
+    # client init
+    client = client_start()
 
     info = file_info(FILENAME)
     print('Predict answer is: ' + client.partition(info, ep, pp))
