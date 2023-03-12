@@ -5,7 +5,7 @@ import torch
 import math
 from torch import Tensor
 import torch.nn as nn
-from tensorboardX import SummaryWriter
+from torch.utils.tensorboard import SummaryWriter
 import time
 # import torch.optim as optim
 # import torch.nn.functional as F

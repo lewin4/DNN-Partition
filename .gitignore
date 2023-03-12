@@ -1,4 +1,6 @@
 /logs/
+/resnet18_data_out/
+/regression_output/
 /README.md
 /CIFAR/
 /.idea/

@@ -3,7 +3,7 @@ import os.path
 import numpy as np
 import time
 import random
-from tensorboardX import SummaryWriter
+from torch.utils.tensorboard import SummaryWriter
 from Branchy_Resnet18 import CosineAnnealingLR
 from typing import Dict
 from Resnet_Model_Pair import *
@@ -320,12 +320,13 @@ def save_regression_result(model: torch.nn.Module,
 
 
 def regression(type: str, num_epochs: int = 15):
-    train_data_dir = "./logs/train_data/"
+    train_data_dir = "./regression_output/train_data/"
     if not os.path.exists(train_data_dir):
         os.makedirs(train_data_dir)
     train_data_path = train_data_dir + type + "_train_data.pth"
     if os.path.exists(train_data_path):
         checkpoint = load_train_data(train_data_path)
+        print("Find regression train data in {}, Don't need generate.".format(train_data_path))
     else:
         checkpoint = eval("generate_" + type + "_data_and_save")(train_data_path)
     data_x = checkpoint["data_x"]

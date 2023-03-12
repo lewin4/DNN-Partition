@@ -6,7 +6,7 @@ NUM_CLASSES = 6
 BRANCH_NUMBER = 4
 INFER_BATCH_SIZE = 1
 BATCH_SIZE = 64
-REGRESSION_RESULT_DIR = "logs/regression_result/"
+REGRESSION_RESULT_DIR = "regression_output/regression_result/"
 regression_type = ["conv", "relu", "pool", "bn", "fc", "load"]
 INPUT_SIZE = (3, 192, 256)
 OUTPUT_DIR = './resnet18_data_out/'
@@ -20,3 +20,6 @@ elif socket.gethostname() == 'DESKTOP-D6L914M':
 elif socket.gethostname() == "raspberrypi":
     TRAIN_DATASET = "/home/e303/Code/data/classification_aug"
     TEST_DATASET = "/home/e303/Code/data/test_dataset"
+if socket.gethostname() == 'wlj':
+    TRAIN_DATASET = r"D:\Code\data\sewage\classification_aug"
+    TEST_DATASET = r"D:\Code\data\sewage\test_dataset"
