@@ -337,6 +337,9 @@ def regression(type: str, num_epochs: int = 15):
     min_data_y = checkpoint["y_min"]
 
     model = get_regression_model(type).to(device)  # 创建类LinearModel的实例
+
+    # 显示16位小数
+    torch.set_printoptions(precision=16)
     print("Init weight and bias: \n", model.liner.weight, "\n", model.liner.bias)
     stat = model.state_dict()
     # 3.构建损失函数和优化器的选择
@@ -376,6 +379,9 @@ def regression(type: str, num_epochs: int = 15):
                            max_data_x, min_data_x,
                            max_data_y, min_data_y,
                            REGRESSION_RESULT_DIR)
+
+    # 恢复显示4位小数
+    torch.set_printoptions(precision=4)
 
 
 if __name__ == "__main__":
