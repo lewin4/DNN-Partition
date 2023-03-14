@@ -21,8 +21,8 @@ elif socket.gethostname() == "raspberrypi":
     TRAIN_DATASET = "/home/e303/Code/data/classification_aug"
     TEST_DATASET = "/home/e303/Code/data/test_dataset"
 if socket.gethostname() == 'wlj':
-    TRAIN_DATASET = r"D:\Code\data\sewage\classification_aug"
-    TEST_DATASET = r"D:\Code\data\sewage\test_dataset"
+    TRAIN_DATASET = r"D:\Code\data\classification_aug"
+    TEST_DATASET = r"D:\Code\data\test_dataset"
 if socket.gethostname() == 'ubuntu':
     TRAIN_DATASET = "/home/e303/ly/data/classification_aug"
     TEST_DATASET = "/home/e303/ly/data/test_dataset"

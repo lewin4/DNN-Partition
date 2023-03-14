@@ -36,7 +36,7 @@ def load_regression_data(server_regression_result_dir: str):
         weight = type_regression["weight"]
         cat_weight = np.empty(0, dtype=np.float64)
         for key, value in weight.items():
-            value = torch.squeeze(value).numpy()
+            value = torch.squeeze(value).cpu().numpy()
             cat_weight = np.append(cat_weight, value)
         type_regression["weight"] = list(cat_weight)
 

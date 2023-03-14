@@ -10,7 +10,7 @@ from config import *
 
 def server_start():
     partition_thrift = thriftpy.load('partition.thrift', module_name='partition_thrift')
-    server = make_server(partition_thrift.Partition, Dispacher(), '202.199.116.128', 6000, client_timeout=3000)
+    server = make_server(partition_thrift.Partition, Dispacher(), '202.199.116.243', 6000, client_timeout=3000)
     print('Thriftpy server is listening...')
     server.serve()
 
