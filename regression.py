@@ -160,7 +160,7 @@ def generate_bn_data_and_save(path):
 
     data_x = torch.DoubleTensor(0, 1)
     data_y = torch.DoubleTensor(0, 1)
-    for batch in range(800):
+    for batch in range(400):
         b = random.randint(5, 16)
         c_id = random.randint(0, 4)
         c = bn_channel[c_id]
