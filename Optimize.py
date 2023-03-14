@@ -1,5 +1,5 @@
 import numpy as np
-import torch
+import os
 
 from Time_Prediction import ServerTime, DeviceTime, partition_point_number, OutputSizeofPartitionLayer
 from Resnet_Model_Pair import *
@@ -8,7 +8,7 @@ from utils import load_regression_data
 
 # TODO： B？ 500KB/s for test
 B = 4096000
-
+device = "cuda" if torch.cuda.is_available() else "cpu"
 
 def get_all_model_size():
     params_size_dict = {}
@@ -16,15 +16,16 @@ def get_all_model_size():
         for partition_point in range(partition_point_number[exit_branch]):
             L_model_name = "NetExit" + str(exit_branch + 1) + "Part" + str(partition_point + 1) + 'L'
             R_model_name = "NetExit" + str(exit_branch + 1) + "Part" + str(partition_point + 1) + 'R'
-            net_L = eval(L_model_name)()
-            summarydict, summ = summary(net_L, INPUT_SIZE, device="cuda" if torch.cuda.is_available() else "cpu")
+
+            net_L = eval(L_model_name)().to(torch.device(device))
+            summarydict, summ = summary(net_L, INPUT_SIZE, device=device)
             output_shape = next(reversed(summ.items()))[1]["output_shape"]
             img_shape = tuple(output_shape[1:])
 
             params_size_dict[L_model_name] = summarydict["Total params"]
             del net_L
-            net_R = eval(R_model_name)()
-            summarydict, _ = summary(net_R, img_shape, device="cuda" if torch.cuda.is_available() else "cpu")
+            net_R = eval(R_model_name)().to(torch.device(device))
+            summarydict, _ = summary(net_R, img_shape, device=device)
             params_size_dict[R_model_name] = summarydict["Total params"]
     torch.save(params_size_dict, MODEL_DIR + "model_size.pth")
     return params_size_dict
@@ -34,7 +35,11 @@ def Optimize(latency_threshold, server_regression_data, client_regression_data):
     server_time_predictor = ServerTime(server_regression_data)
     device_time_predictor = DeviceTime(client_regression_data)
 
-    params_size_dict = torch.load(MODEL_DIR + "model_size.pth")
+    if os.path.exists(MODEL_DIR + "model_size.pth"):
+        params_size_dict = torch.load(MODEL_DIR + "model_size.pth")
+        print("Find " + MODEL_DIR + "model_size.pth")
+    else:
+        params_size_dict = get_all_model_size()
 
     # 无穷大
     min_time = np.float64("inf")
@@ -46,14 +51,16 @@ def Optimize(latency_threshold, server_regression_data, client_regression_data):
             L_model_name = "NetExit" + str(exit_branch + 1) + "Part" + str(partition_point + 1) + 'L'
             R_model_name = "NetExit" + str(exit_branch + 1) + "Part" + str(partition_point + 1) + 'R'
 
-            net_l = eval(L_model_name)()
-            net_r = eval(R_model_name)()
+            net_l = eval(L_model_name)().to(torch.device(device))
+            net_r = eval(R_model_name)().to(torch.device(device))
 
             # immediate data size(bits)
             left_model_size = params_size_dict[L_model_name]
             right_model_size = params_size_dict[R_model_name]
 
-            device_time, output_shape = device_time_predictor.predict_time(net_l, (INFER_BATCH_SIZE, *INPUT_SIZE))
+            device_time, output_shape = device_time_predictor.predict_time(net_l,
+                                                                           (INFER_BATCH_SIZE, *INPUT_SIZE),
+                                                                           device)
             output_size = np.prod(tuple(output_shape)) * 32
 
             server_time = server_time_predictor.predict_time(net_r, output_shape)

@@ -67,6 +67,7 @@ if __name__ == '__main__':
     print('Branch is %d, and partition point is %d' %(ep, pp))
 
     # infer left part
+    inference_start = time.time()
     out = infer(CLIENT, ep, pp, images)
 
     print('Left part of model inference complete.')
@@ -83,4 +84,5 @@ if __name__ == '__main__':
     print('True label is: %d' %labels[0])
 
     end = time.time()
+    print('Inference time: %f' % (end - inference_start))
     print('Total time: %f' %(end-start))
