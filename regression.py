@@ -319,7 +319,7 @@ def save_regression_result(model: torch.nn.Module,
     torch.save(checkpoint, model_save_path)
 
 
-def regression(type: str, num_epochs: int = 15):
+def regression(type: str, num_epochs: int = 15, summary_writer: SummaryWriter = None):
     train_data_dir = "./regression_output/train_data/"
     if not os.path.exists(train_data_dir):
         os.makedirs(train_data_dir)
@@ -347,11 +347,7 @@ def regression(type: str, num_epochs: int = 15):
     batch_size = 10
 
     n_batch_size = int(data_x.size()[0] / batch_size)
-    time_local = time.localtime()
-    time_str = str(time_local[1]) + "m" + str(time_local[2]) + "d" + str(time_local[3]) + "h" + str(
-        time_local[4]) + "m" + str(time_local[5]) + "s"
-    writer_dir = "./logs/generate_data/" + type + "/" + time_str + "/"
-    summary_writer = SummaryWriter(writer_dir)
+
     criterion = torch.nn.MSELoss(reduction="mean")
     optimizer = torch.optim.SGD(model.parameters(), lr=0.005)
     lr_scheduler = CosineAnnealingLR(optimizer, num_epochs, n_batch_size, eta_min=1.e-6, last_epoch=-1)
@@ -363,7 +359,7 @@ def regression(type: str, num_epochs: int = 15):
             y_pred = model(x.to(device))
             y = y.to(device)
             loss = criterion(y_pred, y)
-            summary_writer.add_scalar("regression loss", loss.item(), n_iter)
+            summary_writer.add_scalar("regression loss/{}".format(type), loss.item(), n_iter)
             n_iter = n_iter + 1
             optimizer.zero_grad()
             loss.backward()
@@ -388,8 +384,16 @@ if __name__ == "__main__":
     print("="*30)
     print("This is regression stage.")
     print("="*30)
+
+    # 创建Summary-writer
+    time_local = time.localtime()
+    time_str = str(time_local[1]) + "m" + str(time_local[2]) + "d" + str(time_local[3]) + "h" + str(
+        time_local[4]) + "m" + str(time_local[5]) + "s"
+    writer_dir = "./logs/generate_data/" + time_str + "/"
+    summary_writer = SummaryWriter(writer_dir)
+
     for layer_type in regression_type:
         print("="*30)
         print("Regression " + layer_type + ".")
         print("="*30)
-        regression(layer_type)
+        regression(layer_type, summary_writer=summary_writer)
