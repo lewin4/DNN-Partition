@@ -89,7 +89,7 @@ class DeviceTime:
                 w1, w2 = data["weight"][0], data["weight"][1]
                 W1 = w1/x1_dif*y_dif
                 W2 = w2/x2_dif*y_dif
-                B = (data["weight"][2]-x1_min*w1/x1_dif-x2_min*w2/x2_dif)*y_dif+y_min
+                B = (data["weight"][2]) * y_dif
                 if layer_type == "conv":
                     self.conv_w1 = W1
                     self.conv_w2 = W2
@@ -109,7 +109,7 @@ class DeviceTime:
                 y_dif = data["y_max"][0] - y_min
                 w1= data["weight"][0]
                 W1 = w1 / x1_dif * y_dif
-                B = (data["weight"][1] - x1_min * w1 / x1_dif) * y_dif + y_min
+                B = (data["weight"][1]) * y_dif
                 if layer_type == "bn":
                     self.bn_w1 = W1
                     self.bn_b = B
@@ -158,19 +158,24 @@ class DeviceTime:
         for layer_type, items in layer_data.items():
             if layer_type == Conv2d:
                 for item in items:
-                    time += self.device_conv(*item[1:])
+                    dtime = self.device_conv(*item[1:])
+                    time += (dtime if dtime > 0 else 0)
             if layer_type == MaxPool2d:
                 for item in items:
-                    time += self.device_pool(*item[1:])
+                    dtime = self.device_pool(*item[1:])
+                    time += (dtime if dtime > 0 else 0)
             if layer_type == Linear:
                 for item in items:
-                    time += self.device_pool(*item[1:])
+                    dtime = self.device_linear(*item[1:])
+                    time += (dtime if dtime > 0 else 0)
             if layer_type == BatchNorm2d:
                 for item in items:
-                    time += self.device_bn(*item[1:])
+                    dtime = self.device_bn(*item[1:])
+                    time += (dtime if dtime > 0 else 0)
             if layer_type == ReLU:
                 for item in items:
-                    time += self.device_relu(*item[1:])
+                    dtime = self.device_relu(*item[1:])
+                    time += (dtime if dtime > 0 else 0)
         return time, output_size
 
 
@@ -210,7 +215,7 @@ class ServerTime(DeviceTime):
                     time += (dtime if dtime > 0 else 0)
             if layer_type == Linear:
                 for item in items:
-                    dtime = self.device_pool(*item[1:])
+                    dtime = self.device_linear(*item[1:])
                     time += (dtime if dtime > 0 else 0)
             if layer_type == BatchNorm2d:
                 for item in items:

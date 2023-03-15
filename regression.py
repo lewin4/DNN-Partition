@@ -349,7 +349,7 @@ def regression(type: str, num_epochs: int = 15, summary_writer: SummaryWriter = 
     n_batch_size = int(data_x.size()[0] / batch_size)
 
     criterion = torch.nn.MSELoss(reduction="mean")
-    optimizer = torch.optim.SGD(model.parameters(), lr=0.005)
+    optimizer = torch.optim.SGD(model.parameters(), lr=0.03)
     lr_scheduler = CosineAnnealingLR(optimizer, num_epochs, n_batch_size, eta_min=1.e-6, last_epoch=-1)
 
     n_iter = 0
