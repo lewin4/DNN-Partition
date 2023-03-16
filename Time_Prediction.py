@@ -4,6 +4,7 @@ from collections import OrderedDict
 from typing import Tuple
 import numpy as np
 from regression import get_regression_model
+from typing import List
 
 from config import *
 
@@ -73,6 +74,12 @@ def get_layer_data(net: torch.nn.Module,
     return layer_data, y.size()
 
 
+def list_to_state_dict(para: List[np.float64]) -> OrderedDict:
+    state_dict = OrderedDict()
+    state_dict["linear.weight"] = torch.DoubleTensor(para[0:-1]).reshape(1, -1)
+    state_dict["linear.bias"] = torch.DoubleTensor([para[-1]]).reshape(1,)
+    return state_dict
+
 ###############################################
 # Mobile device side time prediction class
 ###############################################
@@ -82,17 +89,17 @@ class DeviceTime:
         assert len(client_regression_data) == 6
         self.client_regression_data = client_regression_data
         self.conv = get_regression_model("conv")
-        self.conv.load_state_dict(self.client_regression_data["conv"]["weight"])
+        self.conv.load_state_dict(list_to_state_dict(self.client_regression_data["conv"]["weight"]))
         self.bn = get_regression_model("bn")
-        self.bn.load_state_dict(self.client_regression_data["bn"]["weight"])
+        self.bn.load_state_dict(list_to_state_dict(self.client_regression_data["bn"]["weight"]))
         self.pool = get_regression_model("pool")
-        self.pool.load_state_dict(self.client_regression_data["pool"]["weight"])
+        self.pool.load_state_dict(list_to_state_dict(self.client_regression_data["pool"]["weight"]))
         self.relu = get_regression_model("relu")
-        self.relu.load_state_dict(self.client_regression_data["relu"]["weight"])
+        self.relu.load_state_dict(list_to_state_dict(self.client_regression_data["relu"]["weight"]))
         self.load = get_regression_model("load")
-        self.load.load_state_dict(self.client_regression_data["load"]["weight"])
+        self.load.load_state_dict(list_to_state_dict(self.client_regression_data["load"]["weight"]))
         self.linear = get_regression_model("fc")
-        self.linear.load_state_dict(self.client_regression_data["fc"]["weight"])
+        self.linear.load_state_dict(list_to_state_dict(self.client_regression_data["fc"]["weight"]))
         # for layer_type, data in client_regression_data.items():
         #     if layer_type in ["conv", "fc", "pool"]:
         #         x1_min, x2_min = data["x_min"][0], data["x_min"][1]

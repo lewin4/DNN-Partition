@@ -19,11 +19,11 @@ class LinearModel(torch.nn.Module):
     def __init__(self, in_channel, out_channel):
         super(LinearModel, self).__init__()
         torch.set_default_dtype(torch.float64)
-        self.liner = torch.nn.Linear(in_channel, out_channel)  # (1,1)表示输入和输出的维度
+        self.linear = torch.nn.Linear(in_channel, out_channel)  # (1,1)表示输入和输出的维度
         torch.set_default_dtype(torch.float32)
 
     def forward(self, x):
-        y_pred = self.liner(x)
+        y_pred = self.linear(x)
         return y_pred
 
 
