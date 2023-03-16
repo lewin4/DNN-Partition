@@ -17,7 +17,8 @@ if "__main__" == __name__:
         min_data_y = checkpoint["y_min"]
 
         W = (max_data_y - min_data_y)/(max_data_x - min_data_x)*(weight["liner.weight"].cpu())
-        B = (max_data_y - min_data_y)*(weight["liner.bias"].cpu())
+        B = (max_data_y - min_data_y)*(weight["liner.bias"].cpu()) + min_data_y - \
+            (max_data_y - min_data_y)*torch.sum((weight["liner.weight"].cpu())*min_data_x/(max_data_x - min_data_x))
         print(type)
         print("W:")
         print(W)

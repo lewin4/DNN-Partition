@@ -100,7 +100,7 @@ def generate_conv_data_and_save(path: str) -> Dict:
             conv = value[0].eval().to(device)
             x1 = value[1]
             x2 = value[2]
-            data = torch.rand(1, conv.in_channels, 192, 256).to(device)
+            data = torch.rand(1, conv.in_channels, 512, 256).to(device)
             with torch.no_grad():
                 time_start = time.time()
                 y = conv(data)
@@ -341,15 +341,15 @@ def regression(type: str, num_epochs: int = 15, summary_writer: SummaryWriter = 
     # 显示16位小数
     torch.set_printoptions(precision=16)
     print("Init weight and bias: \n", model.liner.weight, "\n", model.liner.bias)
-    stat = model.state_dict()
+
     # 3.构建损失函数和优化器的选择
     print("Starting "+ type + " regression...")
-    batch_size = 10
+    batch_size = 400
 
     n_batch_size = int(data_x.size()[0] / batch_size)
 
     criterion = torch.nn.MSELoss(reduction="mean")
-    optimizer = torch.optim.SGD(model.parameters(), lr=0.03)
+    optimizer = torch.optim.SGD(model.parameters(), lr=0.005)
     lr_scheduler = CosineAnnealingLR(optimizer, num_epochs, n_batch_size, eta_min=1.e-6, last_epoch=-1)
 
     n_iter = 0
@@ -396,4 +396,4 @@ if __name__ == "__main__":
         print("="*30)
         print("Regression " + layer_type + ".")
         print("="*30)
-        regression(layer_type, summary_writer=summary_writer)
+        regression(layer_type, num_epochs=200, summary_writer=summary_writer)
