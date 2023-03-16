@@ -7,7 +7,7 @@ from torchsummary import summary
 from utils import load_regression_data
 
 # TODO： B？ 500KB/s for test
-B = 4096000
+B = 4096000000000000000000000000000
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 def get_all_model_size():
@@ -93,3 +93,13 @@ if __name__ == '__main__':
     client_regression_data = load_regression_data(REGRESSION_RESULT_DIR)
     # print(Optimize(1.0))
     Optimize(1.0, client_regression_data, client_regression_data)
+    import time
+    l_net = NetExit4Part1L().to(torch.device(device)).eval()
+    r_net = NetExit4Part1R().to(torch.device(device)).eval()
+    x = torch.rand(1, 3, 192, 256).to(torch.device(device))
+    start_time = time.time()
+    out = l_net(x)
+    out = r_net(out)
+    end_time = time.time()
+    print("time: {}".format(end_time-start_time))
+    print("Out: {}".format(out))
