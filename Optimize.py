@@ -3,11 +3,12 @@ import os
 
 from Time_Prediction import ServerTime, DeviceTime, partition_point_number, OutputSizeofPartitionLayer
 from Resnet_Model_Pair import *
+import time
+from torch.utils.tensorboard import SummaryWriter
 from torchsummary import summary
 from utils import load_regression_data
+from DNN_Partition_Client import client_start
 
-# TODO： B？ 500KB/s for test
-B = 4096000000000000000000000000000
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 def get_all_model_size():
@@ -31,9 +32,10 @@ def get_all_model_size():
     return params_size_dict
 
 
-def Optimize(latency_threshold, server_regression_data, client_regression_data):
+def Optimize(latency_threshold, B, server_regression_data, client_regression_data):
     server_time_predictor = ServerTime(server_regression_data)
     device_time_predictor = DeviceTime(client_regression_data)
+    print("BW: {}".format(B))
 
     if os.path.exists(MODEL_DIR + "model_size.pth"):
         params_size_dict = torch.load(MODEL_DIR + "model_size.pth")
@@ -92,15 +94,34 @@ if __name__ == '__main__':
     # summarydict, summ = summary(net_l, INPUT_SIZE, device="cuda" if torch.cuda.is_available() else "cpu")
     client_regression_data = load_regression_data(REGRESSION_RESULT_DIR)
     # print(Optimize(1.0))
-    ep, pp = Optimize(1.0, client_regression_data, client_regression_data)
-    print("Ep: {}, Pp: {}".format(ep, pp))
-    import time
-    l_net = NetExit4Part1L().to(torch.device(device)).eval()
-    r_net = NetExit4Part1R().to(torch.device(device)).eval()
-    x = torch.rand(1, 3, 192, 256).to(torch.device(device))
-    start_time = time.time()
-    out = l_net(x)
-    out = r_net(out)
-    end_time = time.time()
-    print("time: {}".format(end_time-start_time))
-    print("Out: {}".format(out))
+
+    # client init
+    client = client_start()
+
+    print("Try to request server device data.")
+    server_regression_data = client.load_server_regression_result()
+    client.close()
+    print("Get server device data successfully.")
+
+    # 创建Summary-writer
+    time_local = time.localtime()
+    time_str = str(time_local[1]) + "m" + str(time_local[2]) + "d" + str(time_local[3]) + "h" + str(
+        time_local[4]) + "m" + str(time_local[5]) + "s"
+    writer_dir = "./logs/optimize/" + time_str + "/"
+    summary_writer = SummaryWriter(writer_dir)
+
+    for B in range(6000000, 10000000, 1000):
+        ep, pp = Optimize(1.0, B, server_regression_data, client_regression_data)
+        summary_writer.add_scalar("ep", ep, B)
+        summary_writer.add_scalar("pp", pp, B)
+        print("Ep: {}, Pp: {}".format(ep, pp))
+        import time
+        l_net = NetExit4Part1L().to(torch.device(device)).eval()
+        r_net = NetExit4Part1R().to(torch.device(device)).eval()
+        x = torch.rand(1, 3, 192, 256).to(torch.device(device))
+        start_time = time.time()
+        out = l_net(x)
+        out = r_net(out)
+        end_time = time.time()
+        print("time: {}".format(end_time-start_time))
+        print("Out: {}".format(out))

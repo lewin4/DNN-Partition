@@ -6,6 +6,7 @@ NUM_CLASSES = 6
 BRANCH_NUMBER = 4
 INFER_BATCH_SIZE = 1
 BATCH_SIZE = 64
+B = 10000 * 1000
 REGRESSION_RESULT_DIR = "regression_output/regression_result/"
 regression_type = ["conv", "relu", "pool", "bn", "fc", "load"]
 INPUT_SIZE = (3, 192, 256)

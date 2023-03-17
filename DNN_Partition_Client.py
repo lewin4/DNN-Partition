@@ -4,7 +4,7 @@ from thriftpy2.rpc import make_client
 from Branchy_Alexnet_Infer import infer
 from utils import load_regression_data
 from config import *
-from Optimize import Optimize
+
 import time
 from typing import Dict
 from FI_loader import get_loaders, SewageDataset
@@ -27,6 +27,7 @@ def file_info(filename: str):
 
 
 if __name__ == '__main__':
+    from Optimize import Optimize
     # get time threshold
 
     # threshold = float(input('Please input latency threshold: '))
@@ -62,7 +63,7 @@ if __name__ == '__main__':
     client_regression_data = load_regression_data(REGRESSION_RESULT_DIR)
 
     # get partition point and exit point
-    ep, pp = Optimize(threshold, server_regression_data, client_regression_data)
+    ep, pp = Optimize(threshold, B, server_regression_data, client_regression_data)
     # ep, pp = 1, 1
     print('Branch is %d, and partition point is %d' %(ep, pp))
 
