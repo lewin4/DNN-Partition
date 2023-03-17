@@ -92,7 +92,8 @@ if __name__ == '__main__':
     # summarydict, summ = summary(net_l, INPUT_SIZE, device="cuda" if torch.cuda.is_available() else "cpu")
     client_regression_data = load_regression_data(REGRESSION_RESULT_DIR)
     # print(Optimize(1.0))
-    Optimize(1.0, client_regression_data, client_regression_data)
+    ep, pp = Optimize(1.0, client_regression_data, client_regression_data)
+    print("Ep: {}, Pp: {}".format(ep, pp))
     import time
     l_net = NetExit4Part1L().to(torch.device(device)).eval()
     r_net = NetExit4Part1R().to(torch.device(device)).eval()

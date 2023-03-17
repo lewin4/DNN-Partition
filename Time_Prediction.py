@@ -165,7 +165,7 @@ class DeviceTime:
         y_max = self.client_regression_data[layer_type]["y_max"][0]
         y_min = self.client_regression_data[layer_type]["y_min"][0]
         data_out = data[0] * (y_max - y_min) + y_min
-        return data_out
+        return data_out/10
 
     # time predict function
     def device_bn(self, data_size):
