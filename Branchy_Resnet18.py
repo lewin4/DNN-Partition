@@ -1,5 +1,8 @@
 # import os
 import os.path
+
+import numpy as np
+
 from Resnet_Model_Pair import *
 import torch
 import math
@@ -49,7 +52,7 @@ def conv1x1(in_planes: int, out_planes: int, stride: int = 1) -> nn.Conv2d:
     return nn.Conv2d(in_planes, out_planes, kernel_size=1, stride=stride, bias=False)
 
 
-class BasicBlock(nn.Module):
+class BasicBlock_Ori(nn.Module):
     expansion: int = 1
 
     def __init__(
@@ -63,7 +66,7 @@ class BasicBlock(nn.Module):
         dilation: int = 1,
         norm_layer: Optional[Callable[..., nn.Module]] = None
     ) -> None:
-        super(BasicBlock, self).__init__()
+        super(BasicBlock_Ori, self).__init__()
         if norm_layer is None:
             norm_layer = nn.BatchNorm2d
         if groups != 1 or base_width != 64:
@@ -98,7 +101,7 @@ class BasicBlock(nn.Module):
         return out
 
 
-class ResNet(nn.Module):
+class ResNet_Ori(nn.Module):
 
     def __init__(
         self,
@@ -112,7 +115,7 @@ class ResNet(nn.Module):
         replace_stride_with_dilation: Optional[List[bool]] = None,
         norm_layer: Optional[Callable[..., nn.Module]] = None
     ) -> None:
-        super(ResNet, self).__init__()
+        super(ResNet_Ori, self).__init__()
         if norm_layer is None:
             norm_layer = nn.BatchNorm2d
         self._norm_layer = norm_layer
@@ -319,6 +322,263 @@ class ResNet(nn.Module):
         x = self.avgpool(x)
         x = torch.flatten(x, 1)
         x = self.fc(x)
+        return x
+
+    def forward(self, x: Tensor) -> Tensor:
+        return self._forward_impl(x)
+
+
+
+class channel_selection(nn.Module):
+    """
+    Select channels from the output of BatchNorm2d layer. It should be put directly after BatchNorm2d layer.
+    The output shape of this layer is determined by the number of 1 in `self.indexes`.
+    """
+    def __init__(self, num_channels):
+        """
+        Initialize the `indexes` with all one vector with the length same as the number of channels.
+        During pruning, the places in `indexes` which correpond to the channels to be pruned will be set to 0.
+        """
+        super(channel_selection, self).__init__()
+        self.indexes = nn.Parameter(torch.ones(num_channels))
+
+    def forward(self, input_tensor):
+        """
+        Parameter
+        ---------
+        input_tensor: (N,C,H,W). It should be the output of BatchNorm2d layer.
+        """
+        selected_index = np.squeeze(np.argwhere(self.indexes.data.cpu().numpy()))
+        if selected_index.size == 1:
+            selected_index = np.resize(selected_index, (1,))
+        output = input_tensor[:, selected_index, :, :]
+        return output
+
+
+class BasicBlock(nn.Module):
+    expansion: int = 1
+
+    def __init__(
+        self,
+        inplanes: int,
+        planes: int,
+        stride: int = 1,
+        downsample: Optional[nn.Module] = None,
+        groups: int = 1,
+        base_width: int = 64,
+        dilation: int = 1,
+        norm_layer: Optional[Callable[..., nn.Module]] = None,
+        cfg: List = None
+    ) -> None:
+        super(BasicBlock, self).__init__()
+        if norm_layer is None:
+            norm_layer = nn.BatchNorm2d
+        if groups != 1 or base_width != 64:
+            raise ValueError('BasicBlock only supports groups=1 and base_width=64')
+        if dilation > 1:
+            raise NotImplementedError("Dilation > 1 not supported in BasicBlock")
+        # Both self.conv1 and self.downsample layers downsample the input when stride != 1
+        self.relu = nn.ReLU(inplace=True)
+        self.bn0 = norm_layer(inplanes)
+        self.select = channel_selection(inplanes)
+        self.conv1 = conv3x3(cfg[0], cfg[1], stride)
+        self.bn1 = norm_layer(cfg[1])
+        self.conv2 = conv3x3(cfg[1], planes)
+        self.bn2 = norm_layer(planes)
+        self.downsample = downsample
+        self.stride = stride
+
+    def forward(self, x: Tensor) -> Tensor:
+        identity = x
+
+        out = self.bn0(x)
+        out = self.select(out)
+        out = self.relu(out)
+        out = self.conv1(out)
+        # out = self.bn1(out)
+        out = self.relu(out)
+
+        out = self.conv2(out)
+        # out = self.bn2(out)
+
+        if self.downsample is not None:
+            identity = self.downsample(x)
+
+        out += identity
+        out = self.relu(out)
+
+        return out
+
+
+class ResNet(nn.Module):
+
+    def __init__(
+        self,
+        block: Type[Union[BasicBlock]],
+        layers: List[int],
+        branch: int = 4,
+        num_classes: int = 1000,
+        zero_init_residual: bool = False,
+        groups: int = 1,
+        width_per_group: int = 64,
+        replace_stride_with_dilation: Optional[List[bool]] = None,
+        norm_layer: Optional[Callable[..., nn.Module]] = None,
+        cfg: List = None,
+        **kwargs
+    ) -> None:
+        if cfg is None:
+            if block == BasicBlock:
+                cfg = [[64, 64]*layers[0], [64, 128], [128, 128]*(layers[1]-1),
+                       [128, 256], [256, 256]*(layers[2]-1), [256, 512], [512, 512]*(layers[3]-1),
+                       [512*block.expansion]]
+                cfg = [item for sub_list in cfg for item in sub_list]
+            else:
+                pass
+
+        self._branch = branch
+
+        if block == BasicBlock:
+            assert len(cfg) == sum([num * 2 for num in layers]) + 1, \
+                "cfg's size shoud be the number of block's conv layers"
+        else:
+            pass
+
+        super(ResNet, self).__init__()
+        if norm_layer is None:
+            norm_layer = nn.BatchNorm2d
+        self._norm_layer = norm_layer
+
+        self.inplanes = 64
+        self.dilation = 1
+        if replace_stride_with_dilation is None:
+            # each element in the tuple indicates if we should replace
+            # the 2x2 stride with a dilated convolution instead
+            replace_stride_with_dilation = [False, False, False]
+        if len(replace_stride_with_dilation) != 3:
+            raise ValueError("replace_stride_with_dilation should be None "
+                             "or a 3-element tuple, got {}".format(replace_stride_with_dilation))
+        self.groups = groups
+        self.base_width = width_per_group
+        self.conv1 = nn.Conv2d(3, self.inplanes, kernel_size=7, stride=2, padding=3,
+                               bias=False)
+        self.bn1 = norm_layer(self.inplanes)
+        self.relu = nn.ReLU(inplace=True)
+        self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
+
+        self.layer1 = self._make_layer(block, 64, layers[0], cfg=cfg[0: sum(layers[0:1])*2])
+
+        self.block1 = self.layer1[0]
+        self.block2 = self.layer1[1]
+        # set branch
+
+        # branch 1
+        if self._branch >= 1:
+            if self._branch == 1:
+                self.branch1conv1 = conv1x1(64, 32)
+                self.branch1bn1 = self._norm_layer(32)
+                self.branch1fc = nn.Linear(24576, num_classes)
+
+        self.layer2 = self._make_layer(block, 128, layers[1], cfg=cfg[sum(layers[0:1])*2: sum(layers[0:2])*2],
+                                       stride=2, dilate=replace_stride_with_dilation[0])
+
+        # branch 2
+        if self._branch >= 2:
+            self.block3 = self.layer2[0]
+            self.block4 = self.layer2[1]
+            if self._branch == 2:
+                self.branch2conv1 = conv1x1(128, 32)
+                self.branch2bn1 = self._norm_layer(32)
+                self.branch2fc = nn.Linear(24576, num_classes)
+
+        self.layer3 = self._make_layer(block, 256, layers[2], cfg=cfg[sum(layers[0:2])*2: sum(layers[0:3])*2],
+                                       stride=2, dilate=replace_stride_with_dilation[1])
+
+        # branch 3
+        if self._branch >= 3:
+            self.block5 = self.layer3[0]
+            self.block6 = self.layer3[1]
+            if self._branch == 3:
+                self.branch3conv1 = conv1x1(256, 128)
+                self.branch3bn1 = self._norm_layer(128)
+                self.branch3fc = nn.Linear(24576, num_classes)
+
+        self.layer4 = self._make_layer(block, 512, layers[3], cfg=cfg[sum(layers[0:3])*2: sum(layers[0:4])*2],
+                                       stride=2, dilate=replace_stride_with_dilation[2])
+
+        # branch 4
+        if self._branch >= 4:
+            self.block7 = self.layer4[0]
+            self.block8 = self.layer4[1]
+            if self._branch == 4:
+                self.bn2 = norm_layer(512 * block.expansion)
+                self.select = channel_selection(512 * block.expansion)
+                self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
+                self.fc = nn.Linear(cfg[-1], num_classes)
+
+
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+            elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)
+
+        # Zero-initialize the last BN in each residual branch,
+        # so that the residual branch starts with zeros, and each residual block behaves like an identity.
+        # This improves the model by 0.2~0.3% according to https://arxiv.org/abs/1706.02677
+        if zero_init_residual:
+            for m in self.modules():
+                nn.init.constant_(m.bn2.weight, 0)  # type: ignore[arg-type]
+
+    def _make_layer(self, block: Type[Union[BasicBlock]], planes: int, blocks: int,
+                    stride: int = 1, dilate: bool = False, cfg: List = None) -> nn.Sequential:
+        if block == BasicBlock:
+            conv_num_per_block = 2
+        else:
+            conv_num_per_block = 3
+        norm_layer = self._norm_layer
+        downsample = None
+        previous_dilation = self.dilation
+        if dilate:
+            self.dilation *= stride
+            stride = 1
+        if stride != 1 or self.inplanes != planes * block.expansion:
+            downsample = nn.Sequential(
+                conv1x1(self.inplanes, planes * block.expansion, stride),
+                norm_layer(planes * block.expansion),
+            )
+
+        layers = []
+        layers.append(block(self.inplanes, planes, stride, downsample, self.groups,
+                            self.base_width, previous_dilation, norm_layer, cfg[0:conv_num_per_block]))
+        self.inplanes = planes * block.expansion
+        for i in range(1, blocks):
+            layers.append(block(self.inplanes, planes, groups=self.groups,
+                                base_width=self.base_width, dilation=self.dilation,
+                                norm_layer=norm_layer,
+                                cfg=cfg[conv_num_per_block*i:conv_num_per_block*(i+1)]))
+
+        return nn.Sequential(*layers)
+
+    def _forward_impl(self, x: Tensor) -> Tensor:
+        # See note [TorchScript super()]
+        x = self.conv1(x)
+        x = self.bn1(x)
+        x = self.relu(x)
+        x = self.maxpool(x)
+
+        x = self.layer1(x)
+        x = self.layer2(x)
+        x = self.layer3(x)
+        x = self.layer4(x)
+        x = self.bn2(x)
+        x = self.select(x)
+        x = self.relu(x)
+
+        x = self.avgpool(x)
+        x = torch.flatten(x, 1)
+        x = self.fc(x)
+
         return x
 
     def forward(self, x: Tensor) -> Tensor:
