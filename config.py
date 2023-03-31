@@ -11,7 +11,7 @@ REGRESSION_RESULT_DIR = "regression_output/regression_result/"
 regression_type = ["conv", "relu", "pool", "bn", "fc", "load"]
 INPUT_SIZE = (3, 192, 256)
 OUTPUT_DIR = './resnet18_data_out/'
-MODEL_DIR = OUTPUT_DIR + 'models/'  # model checkpoints
+MODEL_DIR = OUTPUT_DIR + 'models_new/'  # model checkpoints
 if socket.gethostname() == 'LAPTOP-5G1BF2CK':
     TRAIN_DATASET = r"D:\Code\data\sewage\classification_aug"
     TEST_DATASET = r"D:\Code\data\sewage\test_dataset"

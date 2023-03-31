@@ -478,11 +478,12 @@ class ResNet(nn.Module):
                 self.branch1bn1 = self._norm_layer(32)
                 self.branch1fc = nn.Linear(24576, num_classes)
 
-        self.layer2 = self._make_layer(block, 128, layers[1], cfg=cfg[sum(layers[0:1])*2: sum(layers[0:2])*2],
-                                       stride=2, dilate=replace_stride_with_dilation[0])
+
 
         # branch 2
         if self._branch >= 2:
+            self.layer2 = self._make_layer(block, 128, layers[1], cfg=cfg[sum(layers[0:1]) * 2: sum(layers[0:2]) * 2],
+                                           stride=2, dilate=replace_stride_with_dilation[0])
             self.block3 = self.layer2[0]
             self.block4 = self.layer2[1]
             if self._branch == 2:
@@ -490,11 +491,12 @@ class ResNet(nn.Module):
                 self.branch2bn1 = self._norm_layer(32)
                 self.branch2fc = nn.Linear(24576, num_classes)
 
-        self.layer3 = self._make_layer(block, 256, layers[2], cfg=cfg[sum(layers[0:2])*2: sum(layers[0:3])*2],
-                                       stride=2, dilate=replace_stride_with_dilation[1])
+
 
         # branch 3
         if self._branch >= 3:
+            self.layer3 = self._make_layer(block, 256, layers[2], cfg=cfg[sum(layers[0:2]) * 2: sum(layers[0:3]) * 2],
+                                           stride=2, dilate=replace_stride_with_dilation[1])
             self.block5 = self.layer3[0]
             self.block6 = self.layer3[1]
             if self._branch == 3:
@@ -502,11 +504,12 @@ class ResNet(nn.Module):
                 self.branch3bn1 = self._norm_layer(128)
                 self.branch3fc = nn.Linear(24576, num_classes)
 
-        self.layer4 = self._make_layer(block, 512, layers[3], cfg=cfg[sum(layers[0:3])*2: sum(layers[0:4])*2],
-                                       stride=2, dilate=replace_stride_with_dilation[2])
+
 
         # branch 4
         if self._branch >= 4:
+            self.layer4 = self._make_layer(block, 512, layers[3], cfg=cfg[sum(layers[0:3]) * 2: sum(layers[0:4]) * 2],
+                                           stride=2, dilate=replace_stride_with_dilation[2])
             self.block7 = self.layer4[0]
             self.block8 = self.layer4[1]
             if self._branch == 4:
@@ -562,23 +565,57 @@ class ResNet(nn.Module):
 
     def _forward_impl(self, x: Tensor) -> Tensor:
         # See note [TorchScript super()]
+        # b * n * 192 * 256
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x)
         x = self.maxpool(x)
 
-        x = self.layer1(x)
-        x = self.layer2(x)
-        x = self.layer3(x)
-        x = self.layer4(x)
-        x = self.bn2(x)
-        x = self.select(x)
-        x = self.relu(x)
+        # x = self.layer1(x)
+        # x = self.layer2(x)
+        # x = self.layer3(x)
+        # x = self.layer4(x)
 
+        # branch 1
+        x = self.block1(x)
+        x = self.block2(x)
+        if self._branch == 1:
+            x1 = self.branch1conv1(x)
+            x1 = self.branch1bn1(x1)
+            x1 = self.relu(x1)
+            x1 = self.maxpool(x1)
+            x1 = x1.view(-1, 24576)
+            x1 = self.branch1fc(x1)
+            return x1
+
+        # branch 2
+        x = self.block3(x)
+        x = self.block4(x)
+        if self._branch == 2:
+            x2 = self.branch2conv1(x)
+            x2 = self.branch2bn1(x2)
+            x2 = self.relu(x2)
+            x2 = x2.view(-1, 24576)
+            x2 = self.branch2fc(x2)
+            return x2
+
+        # branch 3
+        x = self.block5(x)
+        x = self.block6(x)
+        if self._branch == 3:
+            x3 = self.branch3conv1(x)
+            x3 = self.branch3bn1(x3)
+            x3 = self.relu(x3)
+            x3 = x3.view(-1, 24576)
+            x3 = self.branch3fc(x3)
+            return x3
+
+        # branch 4
+        x = self.block7(x)
+        x = self.block8(x)
         x = self.avgpool(x)
         x = torch.flatten(x, 1)
         x = self.fc(x)
-
         return x
 
     def forward(self, x: Tensor) -> Tensor:
@@ -635,13 +672,30 @@ class CosineAnnealingLR(LR_Scheduler):
 
 if __name__ == "__main__":
     for branch in range(1, 5):
-        model = ResNet(BasicBlock, [2, 2, 2, 2], num_classes=6, branch=branch).to(device)
+        checkpoint = torch.load(r"D:\Code\UI\prune\newhao\0.8pruned.pth.tar")
+        cfg = checkpoint["cfg"]
+        state_dict = checkpoint["state_dict"]
+
+        model = ResNet(BasicBlock, [2, 2, 2, 2], num_classes=6, branch=branch, cfg=cfg).to(device)
         print("Resnet18 is created.")
         print(model)
-        train_loader, val_loader = get_loaders(TRAIN_DATASET,
-                                             BATCH_SIZE,
-                                             [192, 256],
-                                             num_workers=NUM_WORKER)
+        model_state_dict = model.state_dict()
+        missing_key = model.load_state_dict(state_dict, strict=False)
+
+        try:
+            if model.layer1 is not None:
+                model.layer1 = None
+            if model.layer2 is not None:
+                model.layer2 = None
+            if model.layer3 is not None:
+                model.layer3 = None
+            if model.layer4 is not None:
+                model.layer4 = None
+        except:
+            pass
+        model_state_dict = model.state_dict()
+        train_loader, val_loader = get_loaders(
+            TRAIN_DATASET, BATCH_SIZE, [192, 256], num_workers=NUM_WORKER)
 
         test_dataset = SewageDataset(TEST_DATASET, mode="test")
         test_loader = data.DataLoader(test_dataset,
@@ -681,7 +735,7 @@ if __name__ == "__main__":
         from tqdm import tqdm
         for epoch in range(last_epoch, NUM_EPOCHS):
             for imgs, classes in tqdm(train_loader, desc="Train epoch: {}".format(epoch)):
-                imgs, classes = imgs.to(device), classes.to(device)
+                imgs, classes = imgs.to(device), classes.to(device).squeeze().long()
                 optimizer.zero_grad()
                 # calculate the loss
                 output = model(imgs)
@@ -724,6 +778,7 @@ if __name__ == "__main__":
                         if not os.path.exists(MODEL_DIR):
                             os.makedirs(MODEL_DIR)
                         state_dict = model.state_dict()
+                        state_dict = {"state_dict": state_dict, "cfg": cfg}
                         torch.save(state_dict, MODEL_DIR + 'branch' + str(branch) + '_best_model.pth')
                         print("Saved best acc model: {}".format(best_acc))
                     print("Model Accuracy =", acc)
@@ -735,23 +790,23 @@ if __name__ == "__main__":
                     break
 
                 total_steps += 1
-            if end or (epoch == (NUM_EPOCHS-1)):
-                state_dict = torch.load(MODEL_DIR + 'branch' + str(branch) + '_best_model.pth', map_location=device)
-                from Time_Prediction import partition_point_number
-                for partition_point in range(partition_point_number[branch-1]):
-                    L_model_name = "NetExit" + str(branch) + "Part" + str(partition_point + 1) + 'L'
-                    R_model_name = "NetExit" + str(branch) + "Part" + str(partition_point + 1) + 'R'
-                    net_L = eval(L_model_name)()
-                    net_L_state_dict = net_L.state_dict()
-                    assert set(net_L_state_dict.keys()).issubset(set(state_dict.keys()))
-                    net_l_state_dict = OrderedDict({key: state_dict[key] for key in net_L_state_dict.keys()})
-                    torch.save(net_l_state_dict, MODEL_DIR + L_model_name + ".pth")
-                    net_R = eval(R_model_name)()
-                    net_R_state_dict = net_R.state_dict()
-                    assert set(net_R_state_dict.keys()).issubset(set(state_dict.keys()))
-                    net_r_state_dict = OrderedDict({key: state_dict[key] for key in net_R_state_dict.keys()})
-                    torch.save(net_r_state_dict, MODEL_DIR + R_model_name + ".pth")
-                break
+            # if end or (epoch == (NUM_EPOCHS-1)):
+            #     state_dict = torch.load(MODEL_DIR + 'branch' + str(branch) + '_best_model.pth', map_location=device)
+            #     from Time_Prediction import partition_point_number
+            #     for partition_point in range(partition_point_number[branch-1]):
+            #         L_model_name = "NetExit" + str(branch) + "Part" + str(partition_point + 1) + 'L'
+            #         R_model_name = "NetExit" + str(branch) + "Part" + str(partition_point + 1) + 'R'
+            #         net_L = eval(L_model_name)()
+            #         net_L_state_dict = net_L.state_dict()
+            #         assert set(net_L_state_dict.keys()).issubset(set(state_dict.keys()))
+            #         net_l_state_dict = OrderedDict({key: state_dict[key] for key in net_L_state_dict.keys()})
+            #         torch.save(net_l_state_dict, MODEL_DIR + L_model_name + ".pth")
+            #         net_R = eval(R_model_name)()
+            #         net_R_state_dict = net_R.state_dict()
+            #         assert set(net_R_state_dict.keys()).issubset(set(state_dict.keys()))
+            #         net_r_state_dict = OrderedDict({key: state_dict[key] for key in net_R_state_dict.keys()})
+            #         torch.save(net_r_state_dict, MODEL_DIR + R_model_name + ".pth")
+            #     break
             lr_scheduler.step()
 
             if epoch % 1 == 0:
