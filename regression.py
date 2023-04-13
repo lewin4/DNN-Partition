@@ -8,7 +8,7 @@ from Branchy_Resnet18 import CosineAnnealingLR
 from typing import Dict
 from Resnet_Model_Pair import *
 from torchsummary import summary
-from config import regression_type, REGRESSION_RESULT_DIR
+from config import regression_type, regression_result_dir
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -368,13 +368,13 @@ def regression(type: str, num_epochs: int = 15, summary_writer: SummaryWriter = 
 
     print("regression OK!")
 
-    if not os.path.exists(REGRESSION_RESULT_DIR):
-        os.makedirs(REGRESSION_RESULT_DIR)
+    if not os.path.exists(regression_result_dir):
+        os.makedirs(regression_result_dir)
     save_regression_result(model,
                            type,
                            max_data_x, min_data_x,
                            max_data_y, min_data_y,
-                           REGRESSION_RESULT_DIR)
+                           regression_result_dir)
 
     # 恢复显示4位小数
     torch.set_printoptions(precision=4)

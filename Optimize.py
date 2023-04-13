@@ -92,7 +92,7 @@ def Optimize(latency_threshold, B, server_regression_data, client_regression_dat
 if __name__ == '__main__':
     # net_l = NetExit4Part3L()
     # summarydict, summ = summary(net_l, INPUT_SIZE, device="cuda" if torch.cuda.is_available() else "cpu")
-    client_regression_data = load_regression_data(REGRESSION_RESULT_DIR)
+    client_regression_data = load_regression_data(regression_result_dir)
     # print(Optimize(1.0))
 
     # client init
