@@ -32,7 +32,12 @@ def get_all_model_size():
     return params_size_dict
 
 
-def Optimize(latency_threshold, B, server_regression_data, client_regression_data):
+def Optimize(latency_threshold,
+             B, server_regression_data,
+             client_regression_data,
+             server_latency=None):
+    if server_latency is None:
+        server_latency = latency_threshold
     server_time_predictor = ServerTime(server_regression_data)
     device_time_predictor = DeviceTime(client_regression_data)
     print("BW: {}".format(B))
@@ -45,6 +50,7 @@ def Optimize(latency_threshold, B, server_regression_data, client_regression_dat
 
     # 无穷大
     min_time = np.float64("inf")
+    min_server_time = np.float64("inf")
     minep, minpp = 1, 1
     for exit_branch in range(BRANCH_NUMBER - 1, -1, -1):    #iter[2, 1, 0]
         times = []
@@ -73,13 +79,21 @@ def Optimize(latency_threshold, B, server_regression_data, client_regression_dat
 
             total_time = device_time + server_time + model_load_time + \
                          output_size / B
+            print(device_time, server_time, model_load_time, output_size/B)
             print("Time of ep {} and pp {}: {}".format(exit_branch, partition_point, total_time))
+            if server_time <= min_server_time:
+                min_server_time = server_time
+                minep, minpp = exit_branch, partition_point
+            if server_time > server_latency:
+                continue
             times.append(total_time)
             if total_time <= min_time:
                 min_time = total_time
                 minep, minpp = exit_branch, partition_point
 
         # find min latency in this branch
+        if len(times) == 0:
+            continue
         partition_point = times.index(min(times))
 
         if times[partition_point] < latency_threshold:
@@ -110,10 +124,10 @@ if __name__ == '__main__':
     writer_dir = "./logs/optimize/" + time_str + "/"
     summary_writer = SummaryWriter(writer_dir)
 
-    for B in range(6000000, 10000000, 1000):
-        ep, pp = Optimize(1.0, B, server_regression_data, client_regression_data)
-        summary_writer.add_scalar("ep", ep, B)
-        summary_writer.add_scalar("pp", pp, B)
+    for latency in range(50, 600):
+        ep, pp = Optimize(1.0, 10000000, server_regression_data, client_regression_data, latency/1000)
+        summary_writer.add_scalar("ep", ep, latency)
+        summary_writer.add_scalar("pp", pp, latency)
         print("Ep: {}, Pp: {}".format(ep, pp))
         import time
         l_net = NetExit4Part1L().to(torch.device(device)).eval()
