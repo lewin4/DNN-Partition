@@ -790,23 +790,23 @@ if __name__ == "__main__":
                     break
 
                 total_steps += 1
-            # if end or (epoch == (NUM_EPOCHS-1)):
-            #     state_dict = torch.load(MODEL_DIR + 'branch' + str(branch) + '_best_model.pth', map_location=device)
-            #     from Time_Prediction import partition_point_number
-            #     for partition_point in range(partition_point_number[branch-1]):
-            #         L_model_name = "NetExit" + str(branch) + "Part" + str(partition_point + 1) + 'L'
-            #         R_model_name = "NetExit" + str(branch) + "Part" + str(partition_point + 1) + 'R'
-            #         net_L = eval(L_model_name)()
-            #         net_L_state_dict = net_L.state_dict()
-            #         assert set(net_L_state_dict.keys()).issubset(set(state_dict.keys()))
-            #         net_l_state_dict = OrderedDict({key: state_dict[key] for key in net_L_state_dict.keys()})
-            #         torch.save(net_l_state_dict, MODEL_DIR + L_model_name + ".pth")
-            #         net_R = eval(R_model_name)()
-            #         net_R_state_dict = net_R.state_dict()
-            #         assert set(net_R_state_dict.keys()).issubset(set(state_dict.keys()))
-            #         net_r_state_dict = OrderedDict({key: state_dict[key] for key in net_R_state_dict.keys()})
-            #         torch.save(net_r_state_dict, MODEL_DIR + R_model_name + ".pth")
-            #     break
+            if end or (epoch == (NUM_EPOCHS-1)):
+                state_dict = torch.load(MODEL_DIR + 'branch' + str(branch) + '_best_model.pth', map_location=device)
+                from Time_Prediction import partition_point_number
+                for partition_point in range(partition_point_number[branch-1]):
+                    L_model_name = "NetExit" + str(branch) + "Part" + str(partition_point + 1) + 'L'
+                    R_model_name = "NetExit" + str(branch) + "Part" + str(partition_point + 1) + 'R'
+                    net_L = eval(L_model_name)()
+                    net_L_state_dict = net_L.state_dict()
+                    assert set(net_L_state_dict.keys()).issubset(set(state_dict.keys()))
+                    net_l_state_dict = OrderedDict({key: state_dict[key] for key in net_L_state_dict.keys()})
+                    torch.save(net_l_state_dict, MODEL_DIR + L_model_name + ".pth")
+                    net_R = eval(R_model_name)()
+                    net_R_state_dict = net_R.state_dict()
+                    assert set(net_R_state_dict.keys()).issubset(set(state_dict.keys()))
+                    net_r_state_dict = OrderedDict({key: state_dict[key] for key in net_R_state_dict.keys()})
+                    torch.save(net_r_state_dict, MODEL_DIR + R_model_name + ".pth")
+                break
             lr_scheduler.step()
 
             if epoch % 1 == 0:
